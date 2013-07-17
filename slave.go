@@ -16,12 +16,12 @@ func Slave(num int, reader InputReader) {
 func slave(num int, reader InputReader) error {
 	// Load task input from file.
 	infile := inputFile(num)
-	input, err := loadInput(reader, infile)
+	task, err := loadInput(reader, infile)
 	if err != nil {
 		return err
 	}
 
-	name := input.Name()
+	name := task.Input().Name()
 	outfile := outputFile(name)
 
 	// Check if output file already exists.
@@ -31,7 +31,7 @@ func slave(num int, reader InputReader) error {
 	}
 
 	// Do the thing.
-	output, err := input.Execute()
+	output, err := task.Execute()
 	if err != nil {
 		return err
 	}
@@ -45,18 +45,18 @@ func slave(num int, reader InputReader) error {
 
 // Attempts to load an unexecuted task from an input file.
 // Open files are closed on return.
-func loadInput(reader InputReader, name string) (Input, error) {
+func loadInput(reader InputReader, name string) (Task, error) {
 	file, err := os.Open(name)
 	if err != nil {
 		return nil, err
 	}
 	defer file.Close()
 
-	input, err := reader.Read(file)
+	task, err := reader.Read(file)
 	if err != nil {
 		return nil, err
 	}
-	return input, nil
+	return task, nil
 }
 
 func saveOutput(output Output, filename string) error {

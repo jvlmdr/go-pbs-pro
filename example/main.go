@@ -64,19 +64,25 @@ func (input Input) Write(w io.Writer) error {
 }
 
 // Read input from disk.
-func ReadInput(r io.Reader) (grideng.Input, error) {
+func readInput(r io.Reader) (Input, error) {
 	var x int
 	_, err := fmt.Fscanln(r, &x)
 	if err != nil {
-		return nil, err
+		return Input(0), err
 	}
 	return Input(x), nil
 }
 
 type Output int
 
-func (input Input) Execute() (grideng.Output, error) {
-	n := int(input)
+type Task Input
+
+func (task Task) Input() grideng.Input {
+	return Input(task)
+}
+
+func (task Task) Execute() (grideng.Output, error) {
+	n := int(Input(task))
 	output := Output(n * n)
 	return output, nil
 }
@@ -91,10 +97,12 @@ func (output Output) Write(w io.Writer) error {
 
 type InputReader struct{}
 
-func (reader InputReader) Read(r io.Reader) (grideng.Input, error) {
-	input, err := ReadInput(r)
+func (reader InputReader) Read(r io.Reader) (grideng.Task, error) {
+	input, err := readInput(r)
 	if err != nil {
 		return nil, err
 	}
-	return input, nil
+
+	task := Task(input)
+	return task, nil
 }

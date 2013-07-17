@@ -1,14 +1,13 @@
 package grideng
 
 import (
-	"bytes"
 	"fmt"
 	"os"
 	"os/exec"
 )
 
-// Executes all tasks and returns a map from task names to output files.
-func Master(inputs []Input, resources string, cmdArgs []string) (map[string]string, error) {
+// Executes all tasks and returns a list of output files.
+func Master(inputs []Input, resources string, cmdArgs []string) ([]string, error) {
 	// Serialize inputs.
 	if err := saveAllInputs(inputs); err != nil {
 		return nil, err
@@ -34,7 +33,7 @@ func Master(inputs []Input, resources string, cmdArgs []string) (map[string]stri
 	// Redirect stderr.
 	args = append(args, "-e", `stderr-$TASK_ID`)
 
-	//	// Name of executable to run.
+	// Name of executable to run.
 	args = append(args, os.Args[0])
 	args = append(args, cmdArgs...)
 
@@ -53,8 +52,16 @@ func Master(inputs []Input, resources string, cmdArgs []string) (map[string]stri
 		return nil, err
 	}
 
-	// Check success and failure.
-	files := make(map[string]string)
+	// Check success/failure of tasks.
+	files := make([]string, len(inputs))
+	for i, input := range inputs {
+		name := input.Name()
+		outfile := outputFile(name)
+		// Check if output file exists.
+		if _, err := os.Stat(outfile); err == nil {
+			files[i] = outfile
+		}
+	}
 	return files, nil
 }
 
@@ -85,20 +92,4 @@ func saveInput(input Input, filename string) error {
 		return err
 	}
 	return nil
-}
-
-// Turns a map of resources into a string.
-func ResourcesString(res map[string]string) string {
-	var b bytes.Buffer
-	var i int
-	for k, v := range res {
-		if i > 0 {
-			b.WriteString(",")
-		}
-		b.WriteString(k)
-		b.WriteString("=")
-		b.WriteString(v)
-		i++
-	}
-	return b.String()
 }
