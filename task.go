@@ -14,7 +14,7 @@ type Input interface {
 	Write(io.Writer) error
 }
 
-// Deserializes an input and returns a task which is given it.
+// Deserializes an input and returns a task which has been supplied this input.
 type InputReader interface {
 	Read(io.Reader) (Task, error)
 }
@@ -25,11 +25,12 @@ type Task interface {
 	Execute() (Output, error)
 }
 
-// An output knows how to serialize and de-serialize itself.
+// An output knows how to serialize itself.
 type Output interface {
 	Write(io.Writer) error
 }
 
+// A list of outputs which can load its elements from readers.
 type OutputList interface {
 	Read(i int, r io.Reader) error
 }
