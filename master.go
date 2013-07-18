@@ -7,7 +7,7 @@ import (
 )
 
 // Executes all tasks and returns a list of output files.
-func Master(inputs []Input, resources string, cmdArgs []string) ([]string, error) {
+func Master(inputs InputList, resources string, cmdArgs []string) ([]string, error) {
 	// Serialize inputs.
 	if err := saveAllInputs(inputs); err != nil {
 		return nil, err
@@ -23,7 +23,7 @@ func Master(inputs []Input, resources string, cmdArgs []string) ([]string, error
 	// Use same environment variables.
 	args = append(args, "-V")
 	// Use same environment variables.
-	args = append(args, "-t", fmt.Sprintf("1-%d", len(inputs)))
+	args = append(args, "-t", fmt.Sprintf("1-%d", inputs.Len()))
 	// Set resources.
 	if len(resources) > 0 {
 		args = append(args, "-l", resources)
@@ -53,9 +53,9 @@ func Master(inputs []Input, resources string, cmdArgs []string) ([]string, error
 	}
 
 	// Check success/failure of tasks.
-	files := make([]string, len(inputs))
-	for i, input := range inputs {
-		name := input.Name()
+	files := make([]string, inputs.Len())
+	for i := 0; i < inputs.Len(); i++ {
+		name := inputs.At(i).Name()
 		outfile := outputFile(name)
 		// Check if output file exists.
 		if _, err := os.Stat(outfile); err == nil {
@@ -66,13 +66,13 @@ func Master(inputs []Input, resources string, cmdArgs []string) ([]string, error
 }
 
 // Attempts to save each task input to a file.
-func saveAllInputs(inputs []Input) error {
-	for i, input := range inputs {
+func saveAllInputs(inputs InputList) error {
+	for i := 0; i < inputs.Len(); i++ {
 		// Grid Engine task ID (one-indexed not zero-indexed).
 		num := i + 1
 		// Save input to file.
 		file := inputFile(num)
-		if err := saveInput(input, file); err != nil {
+		if err := saveInput(inputs.At(i), file); err != nil {
 			return err
 		}
 	}
@@ -89,6 +89,31 @@ func saveInput(input Input, filename string) error {
 	defer file.Close()
 
 	if err := input.Write(file); err != nil {
+		return err
+	}
+	return nil
+}
+
+// Reads all files into the list of outputs.
+func LoadOutputs(outputs OutputList, files []string) error {
+	for i, file := range files {
+		if err := readOutput(outputs, i, file); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// Attempts to load the output for a task from a file.
+// Open files are closed on return.
+func readOutput(outputs OutputList, i int, filename string) error {
+	file, err := os.Open(filename)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	if err := outputs.Read(i, file); err != nil {
 		return err
 	}
 	return nil
