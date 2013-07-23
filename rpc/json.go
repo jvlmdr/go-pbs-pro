@@ -6,30 +6,45 @@ import (
 	"io"
 )
 
+// Wrap json.RawMessage in struct so that even if the message is a nil pointer, the JSON string will be {} not empty.
+type rawMessage struct {
+	Message *json.RawMessage
+}
+
+func makeRawMessage() rawMessage { return rawMessage{new(json.RawMessage)} }
+
+// Struct which gets marshalled and unmarshalled for requests.
 type jsonRequest struct {
 	Type   string
-	Header *json.RawMessage
-	Body   *json.RawMessage
+	Header rawMessage
+	Body   rawMessage
 }
 
 func makeJSONRequest() jsonRequest {
-	return jsonRequest{Header: new(json.RawMessage), Body: new(json.RawMessage)}
+	return jsonRequest{Header: makeRawMessage(), Body: makeRawMessage()}
 }
 
+// Struct which gets marshalled and unmarshalled for responses.
 type jsonResponse struct {
-	Header *json.RawMessage
-	Body   *json.RawMessage
+	Header rawMessage
+	Body   rawMessage
 }
 
 func makeJSONResponse() jsonResponse {
-	return jsonResponse{new(json.RawMessage), new(json.RawMessage)}
+	return jsonResponse{makeRawMessage(), makeRawMessage()}
 }
 
-func marshal(x interface{}) (json.RawMessage, error) {
+// Calls json.Marshal but returns a nil pointer if x is nil.
+func marshal(x interface{}) (rawMessage, error) {
 	if x == nil {
-		return []byte("null"), nil
+		return rawMessage{}, nil
 	}
-	return json.Marshal(x)
+	var message json.RawMessage
+	message, err := json.Marshal(x)
+	if err != nil {
+		return rawMessage{}, err
+	}
+	return rawMessage{&message}, err
 }
 
 //
@@ -46,16 +61,15 @@ func NewJSONClientCodec(conn io.ReadWriter) ClientCodec {
 }
 
 func (c jsonClientCodec) WriteRequest(typ string, header interface{}, body interface{}) error {
-	rawHeader, err := marshal(header)
+	headerMessage, err := marshal(header)
 	if err != nil {
 		return err
 	}
-	rawBody, err := marshal(body)
+	bodyMessage, err := marshal(body)
 	if err != nil {
 		return err
 	}
-
-	req := jsonRequest{typ, &rawHeader, &rawBody}
+	req := jsonRequest{typ, headerMessage, bodyMessage}
 
 	buf := bufio.NewWriter(c.Conn)
 	enc := json.NewEncoder(buf)
@@ -75,11 +89,11 @@ func (c *jsonClientCodec) ReadResponse() error {
 }
 
 func (c jsonClientCodec) ReadResponseHeader(header interface{}) error {
-	return json.Unmarshal(*c.Response.Header, header)
+	return json.Unmarshal(*c.Response.Header.Message, header)
 }
 
 func (c jsonClientCodec) ReadResponseBody(body interface{}) error {
-	return json.Unmarshal(*c.Response.Body, body)
+	return json.Unmarshal(*c.Response.Body.Message, body)
 }
 
 //
@@ -105,24 +119,23 @@ func (c *jsonServerCodec) ReadRequestType() (string, error) {
 }
 
 func (c jsonServerCodec) ReadRequestHeader(header interface{}) error {
-	return json.Unmarshal(*c.Request.Header, header)
+	return json.Unmarshal(*c.Request.Header.Message, header)
 }
 
 func (c jsonServerCodec) ReadRequestBody(body interface{}) error {
-	return json.Unmarshal(*c.Request.Body, body)
+	return json.Unmarshal(*c.Request.Body.Message, body)
 }
 
 func (c jsonServerCodec) WriteResponse(header interface{}, body interface{}) error {
-	rawHeader, err := marshal(header)
+	headerMessage, err := marshal(header)
 	if err != nil {
 		return err
 	}
-	rawBody, err := marshal(body)
+	bodyMessage, err := marshal(body)
 	if err != nil {
 		return err
 	}
-
-	response := jsonResponse{&rawHeader, &rawBody}
+	response := jsonResponse{headerMessage, bodyMessage}
 
 	buf := bufio.NewWriter(c.Conn)
 	enc := json.NewEncoder(buf)
