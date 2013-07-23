@@ -9,26 +9,16 @@ import (
 	"os/exec"
 )
 
-// A request to receive input has no content.
-type InputRequest struct{}
-
-func (r InputRequest) Type() string { return "input" }
-
 // A request to send output contains an index, and possibly an error (plus the body).
-type OutputRequest struct {
+type OutputRequestHeader struct {
 	Index int
 	Error string
 }
 
-func (r OutputRequest) Type() string { return "output" }
-
 // A response to send input contains the index (plus the body).
-type InputResponse struct {
+type InputResponseHeader struct {
 	Index int
 }
-
-// A response after receiving output has no content.
-type OutputResponse struct{}
 
 type SquareMap struct {
 	X []float64
@@ -84,25 +74,26 @@ func Slave(task Task, addr string, port int) {
 		}
 		defer conn.Close()
 
-		codec := NewJSONClientCodec(conn)
+		codec := MakeJSONClientCodec(conn)
 		// Send request.
-		if err := codec.WriteRequest("input", nil, nil); err != nil {
+		if err := codec.WriteRequest(InputRequest, nil, nil); err != nil {
 			log.Fatalln("Write request (to receive input) error:", err)
 		}
 
 		// Read response type.
-		if err := codec.ReadResponse(); err != nil {
+		response, err := codec.ReadResponse()
+		if err != nil {
 			log.Fatalln("Read response error:", err)
 		}
 		// Read response header.
-		var header InputResponse
-		if err := codec.ReadResponseHeader(&header); err != nil {
+		var header InputResponseHeader
+		if err := response.ReadHeader(&header); err != nil {
 			log.Fatalln("Read response (to receive input) header error:", err)
 		}
 		index = header.Index
 		log.Println("Task index:", index)
 		// Read response body.
-		if err := codec.ReadResponseBody(task.Input()); err != nil {
+		if err := response.ReadBody(task.Input()); err != nil {
 			log.Fatalln("Read response (to receive input) body error:", err)
 		}
 	}()
@@ -119,11 +110,11 @@ func Slave(task Task, addr string, port int) {
 		defer conn.Close()
 
 		// Prepare header.
-		header := OutputRequest{Index: index, Error: ""}
+		header := OutputRequestHeader{Index: index, Error: ""}
 
-		codec := NewJSONClientCodec(conn)
+		codec := MakeJSONClientCodec(conn)
 		// Send request.
-		if err := codec.WriteRequest("output", header, task.Output()); err != nil {
+		if err := codec.WriteRequest(OutputRequest, header, task.Output()); err != nil {
 			log.Fatalln("Write request (to send output) error:", err)
 		}
 		// No data to receive. Done.
@@ -171,33 +162,33 @@ func Master(n int, addr string, port int) {
 				defer conn.Close()
 
 				// Read request type.
-				codec := NewJSONServerCodec(conn)
-				typ, err := codec.ReadRequestType()
+				codec := MakeJSONServerCodec(conn)
+				request, err := codec.ReadRequest()
 				if err != nil {
 					log.Fatalln("Read request type error:", err)
 				}
 
-				switch typ {
+				switch request.Type() {
 				default:
-					log.Fatalf(`Unknown request type "%s"`, typ)
-				case "input":
+					log.Fatalf(`Unknown request type "%s"`, request.Type())
+				case InputRequest:
 					// No more information to read since input request has no content.
 					// Get index of job.
 					index := <-in
 					// Prepare header and send input.
-					header := InputResponse{index}
+					header := InputResponseHeader{index}
 					if err := codec.WriteResponse(header, m.Input(index)); err != nil {
 						log.Fatalln("Write response (to receive input) error:", err)
 					}
-				case "output":
+				case OutputRequest:
 					// Read header and content of request to send output.
-					var header OutputRequest
-					if err := codec.ReadRequestHeader(&header); err != nil {
+					var header OutputRequestHeader
+					if err := request.ReadHeader(&header); err != nil {
 						log.Fatalln("Read request (to send output) header error:", err)
 					}
 					index := header.Index
 					// Read body into map output.
-					if err := codec.ReadRequestBody(m.Output(index)); err != nil {
+					if err := request.ReadBody(m.Output(index)); err != nil {
 						log.Fatalln("Read request (to send output) body error:", err)
 					}
 					// No need to send response to client.

@@ -15,13 +15,25 @@ func makeRawMessage() rawMessage { return rawMessage{new(json.RawMessage)} }
 
 // Struct which gets marshalled and unmarshalled for requests.
 type jsonRequest struct {
-	Type   string
-	Header rawMessage
-	Body   rawMessage
+	TypeString string     `json:"Type"`
+	Header     rawMessage
+	Body       rawMessage
 }
 
 func makeJSONRequest() jsonRequest {
 	return jsonRequest{Header: makeRawMessage(), Body: makeRawMessage()}
+}
+
+func (r jsonRequest) Type() string {
+	return r.TypeString
+}
+
+func (r jsonRequest) ReadHeader(dst interface{}) error {
+	return json.Unmarshal(*r.Header.Message, dst)
+}
+
+func (r jsonRequest) ReadBody(dst interface{}) error {
+	return json.Unmarshal(*r.Body.Message, dst)
 }
 
 // Struct which gets marshalled and unmarshalled for responses.
@@ -32,6 +44,14 @@ type jsonResponse struct {
 
 func makeJSONResponse() jsonResponse {
 	return jsonResponse{makeRawMessage(), makeRawMessage()}
+}
+
+func (r jsonResponse) ReadHeader(dst interface{}) error {
+	return json.Unmarshal(*r.Header.Message, dst)
+}
+
+func (r jsonResponse) ReadBody(dst interface{}) error {
+	return json.Unmarshal(*r.Body.Message, dst)
 }
 
 // Calls json.Marshal but returns a nil pointer if x is nil.
@@ -52,12 +72,10 @@ func marshal(x interface{}) (rawMessage, error) {
 //
 type jsonClientCodec struct {
 	Conn io.ReadWriter
-	// Store response as it is being read.
-	Response jsonResponse
 }
 
-func NewJSONClientCodec(conn io.ReadWriter) ClientCodec {
-	return &jsonClientCodec{conn, makeJSONResponse()}
+func MakeJSONClientCodec(conn io.ReadWriter) ClientCodec {
+	return jsonClientCodec{conn}
 }
 
 func (c jsonClientCodec) WriteRequest(typ string, header interface{}, body interface{}) error {
@@ -79,21 +97,14 @@ func (c jsonClientCodec) WriteRequest(typ string, header interface{}, body inter
 	return buf.Flush()
 }
 
-func (c *jsonClientCodec) ReadResponse() error {
+func (c jsonClientCodec) ReadResponse() (Reader, error) {
+	var response jsonResponse
 	// buf := bufio.NewReader(c.Conn)
 	dec := json.NewDecoder(c.Conn)
-	if err := dec.Decode(&c.Response); err != nil {
-		return err
+	if err := dec.Decode(&response); err != nil {
+		return nil, err
 	}
-	return nil
-}
-
-func (c jsonClientCodec) ReadResponseHeader(header interface{}) error {
-	return json.Unmarshal(*c.Response.Header.Message, header)
-}
-
-func (c jsonClientCodec) ReadResponseBody(body interface{}) error {
-	return json.Unmarshal(*c.Response.Body.Message, body)
+	return response, nil
 }
 
 //
@@ -101,29 +112,20 @@ func (c jsonClientCodec) ReadResponseBody(body interface{}) error {
 //
 type jsonServerCodec struct {
 	Conn io.ReadWriteCloser
-	// Store request as it is being read.
-	Request jsonRequest
 }
 
-func NewJSONServerCodec(conn io.ReadWriteCloser) ServerCodec {
-	return &jsonServerCodec{Conn: conn}
+func MakeJSONServerCodec(conn io.ReadWriteCloser) ServerCodec {
+	return jsonServerCodec{conn}
 }
 
-func (c *jsonServerCodec) ReadRequestType() (string, error) {
+func (c jsonServerCodec) ReadRequest() (RequestReader, error) {
+	var request jsonRequest
 	// buf := bufio.NewReader(c.Conn)
 	dec := json.NewDecoder(c.Conn)
-	if err := dec.Decode(&c.Request); err != nil {
-		return string(0), err
+	if err := dec.Decode(&request); err != nil {
+		return nil, err
 	}
-	return c.Request.Type, nil
-}
-
-func (c jsonServerCodec) ReadRequestHeader(header interface{}) error {
-	return json.Unmarshal(*c.Request.Header.Message, header)
-}
-
-func (c jsonServerCodec) ReadRequestBody(body interface{}) error {
-	return json.Unmarshal(*c.Request.Body.Message, body)
+	return request, nil
 }
 
 func (c jsonServerCodec) WriteResponse(header interface{}, body interface{}) error {
