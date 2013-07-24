@@ -1,7 +1,7 @@
-package main
+package rpc
 
 const (
-	InputRequest = "input"
+	InputRequest  = "input"
 	OutputRequest = "output"
 )
 
@@ -30,4 +30,15 @@ type ServerCodec interface {
 	ReadRequest() (RequestReader, error)
 	// Write response.
 	WriteResponse(header interface{}, body interface{}) error
+}
+
+// A request to send output contains an index, and possibly an error (plus the body).
+type OutputRequestHeader struct {
+	Index int
+	Error string
+}
+
+// A response to send input contains the index (plus the body).
+type InputResponseHeader struct {
+	Index int
 }

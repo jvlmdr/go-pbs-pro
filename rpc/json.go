@@ -1,4 +1,4 @@
-package main
+package rpc
 
 import (
 	"bufio"
@@ -15,9 +15,9 @@ func makeRawMessage() rawMessage { return rawMessage{new(json.RawMessage)} }
 
 // Struct which gets marshalled and unmarshalled for requests.
 type jsonRequest struct {
-	TypeString string     `json:"Type"`
-	Header     rawMessage
-	Body       rawMessage
+	TypeStr string `json:"Type"`
+	Header  rawMessage
+	Body    rawMessage
 }
 
 func makeJSONRequest() jsonRequest {
@@ -25,7 +25,7 @@ func makeJSONRequest() jsonRequest {
 }
 
 func (r jsonRequest) Type() string {
-	return r.TypeString
+	return r.TypeStr
 }
 
 func (r jsonRequest) ReadHeader(dst interface{}) error {
@@ -111,10 +111,10 @@ func (c jsonClientCodec) ReadResponse() (Reader, error) {
 //
 //
 type jsonServerCodec struct {
-	Conn io.ReadWriteCloser
+	Conn io.ReadWriter
 }
 
-func MakeJSONServerCodec(conn io.ReadWriteCloser) ServerCodec {
+func MakeJSONServerCodec(conn io.ReadWriter) ServerCodec {
 	return jsonServerCodec{conn}
 }
 
