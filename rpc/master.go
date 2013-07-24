@@ -8,7 +8,7 @@ import (
 
 // Always attempts every task, even if one returns an error.
 // Returns an error if any task returns an error.
-func Do(m Map, addr, port, codec, resources string) error {
+func Do(m Map, addr, codec, resources string) error {
 	// Queue up task indices.
 	todo := make(chan int)
 	go countTo(m.Len(), todo)
@@ -25,20 +25,21 @@ func Do(m Map, addr, port, codec, resources string) error {
 	// Send result of qsub down this channel when it exits.
 	qsub := make(chan error, 1)
 
+	// Open port.
+	l, err := net.Listen("tcp", addr)
+	if err != nil {
+		return err
+	}
+
+	// Start listening for requests.
+	go serveRequests(m, l, codec, todo, errs)
+
 	// Prepare to start qsub.
 	var args []string
 	args = append(args, "-slave")
 	args = append(args, fmt.Sprintf("-addr=%s", addr))
-	args = append(args, fmt.Sprintf("-port=%s", port))
 	args = append(args, fmt.Sprintf("-codec=%s", codec))
 
-	// Open port.
-	l, err := net.Listen("tcp", fmt.Sprintf(":%s", port))
-	if err != nil {
-		return err
-	}
-	// Start listening for requests.
-	go serveRequests(m, l, codec, todo, errs)
 	// Call qsub and close the port when it finishes.
 	go func() {
 		// Keep port open until qsub closes.

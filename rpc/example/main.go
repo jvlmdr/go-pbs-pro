@@ -38,15 +38,13 @@ func main() {
 	var (
 		master    bool
 		slave     bool
-		port      string
 		addr      string
 		codec     string
 		resources string
 	)
 	flag.BoolVar(&master, "master", false, "Operate in master mode?")
 	flag.BoolVar(&slave, "slave", false, "Operate in slave mode?")
-	flag.StringVar(&addr, "addr", "", "Master address")
-	flag.StringVar(&port, "port", "1234", "Master port")
+	flag.StringVar(&addr, "addr", "", "Address of server")
 	flag.StringVar(&codec, "codec", "json", "Codec (json or gob)")
 	flag.StringVar(&resources, "l", "", "Grid engine resources (qsub -l flag)")
 
@@ -54,7 +52,7 @@ func main() {
 
 	if slave && !master {
 		var task SquareTask
-		rpc.ExecSlave(&task, addr, port, codec)
+		rpc.ExecSlave(&task, addr, codec)
 	}
 
 	if slave == master {
@@ -72,6 +70,6 @@ func main() {
 	}
 	m := SquareMap{x}
 
-	rpc.Do(m, addr, port, codec, resources)
+	rpc.Do(m, addr, codec, resources)
 	fmt.Println(x)
 }

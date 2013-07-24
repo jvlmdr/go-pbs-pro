@@ -1,7 +1,6 @@
 package rpc
 
 import (
-	"fmt"
 	"log"
 	"net"
 	"os"
@@ -10,20 +9,20 @@ import (
 // Never returns.
 // If everything succeeds, it calls os.Exit(0).
 // Otherwise, it exits with some other status code.
-func ExecSlave(task Task, addr, port, codec string) {
+func ExecSlave(task Task, addr, codec string) {
 	// Make request to receive input from server.
-	inputResponse := receiveInput(task, addr, port, codec)
+	inputResponse := receiveInput(task, addr, codec)
 	index := inputResponse.Index
 	// Do the thing.
 	err := task.Do()
 	// Make request to send output to server.
-	sendOutput(task, index, err, addr, port, codec)
+	sendOutput(task, index, err, addr, codec)
 	os.Exit(0)
 }
 
 // Returns task index.
-func receiveInput(task Task, addr, port, codecName string) InputResponseHeader {
-	conn, err := net.Dial("tcp", fmt.Sprintf("%s:%s", addr, port))
+func receiveInput(task Task, addr, codecName string) InputResponseHeader {
+	conn, err := net.Dial("tcp", addr)
 	if err != nil {
 		log.Fatalln("Could not connect to server:", err)
 	}
@@ -56,8 +55,8 @@ func receiveInput(task Task, addr, port, codecName string) InputResponseHeader {
 	return header
 }
 
-func sendOutput(task Task, index int, taskErr error, addr, port, codecName string) {
-	conn, err := net.Dial("tcp", fmt.Sprintf("%s:%s", addr, port))
+func sendOutput(task Task, index int, taskErr error, addr, codecName string) {
+	conn, err := net.Dial("tcp", addr)
 	if err != nil {
 		log.Fatalln("Could not connect to server:", err)
 	}
