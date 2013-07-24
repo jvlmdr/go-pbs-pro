@@ -4,31 +4,9 @@ import (
 	"flag"
 	"fmt"
 	"github.com/jackvalmadre/go-grideng/rpc"
+	"log"
 	"os"
 )
-
-type SquareMap struct {
-	X []float64
-}
-
-func (m SquareMap) Len() int                 { return len(m.X) }
-func (m SquareMap) Input(i int) interface{}  { return m.X[i] }
-func (m SquareMap) Output(i int) interface{} { return &m.X[i] }
-
-func (m SquareMap) Task(i int) rpc.Task {
-	return &SquareTask{m.X[i]}
-}
-
-type SquareTask struct{ X float64 }
-
-func (t *SquareTask) Input() interface{} { return &t.X }
-func (t SquareTask) Output() interface{} { return t.X }
-
-func (t *SquareTask) Do() error {
-	// This is the actual work.
-	t.X = t.X * t.X
-	return nil
-}
 
 func main() {
 	// Program flags.
@@ -38,12 +16,14 @@ func main() {
 	var (
 		master    bool
 		slave     bool
+		mode      string
 		addr      string
 		codec     string
 		resources string
 	)
 	flag.BoolVar(&master, "master", false, "Operate in master mode?")
 	flag.BoolVar(&slave, "slave", false, "Operate in slave mode?")
+	flag.StringVar(&mode, "mode", "", `"square" or "print"`)
 	flag.StringVar(&addr, "addr", "", "Address of server")
 	flag.StringVar(&codec, "codec", "json", "Codec (json or gob)")
 	flag.StringVar(&resources, "l", "", "Grid engine resources (qsub -l flag)")
@@ -51,8 +31,17 @@ func main() {
 	flag.Parse()
 
 	if slave && !master {
-		var task SquareTask
-		rpc.ExecSlave(&task, addr, codec)
+		var task grideng.Task
+		switch mode {
+		case "square":
+			task = new(SquareTask)
+		case "print":
+			task = new(PrintTask)
+		default:
+			fmt.Fprintf(os.Stderr, "Invalid mode \"%s\"\n", mode)
+			os.Exit(1)
+		}
+		grideng.ExecSlave(task, addr, codec)
 	}
 
 	if slave == master {
@@ -68,8 +57,16 @@ func main() {
 	for i := 0; i < n; i++ {
 		x[i] = float64(i)
 	}
-	m := SquareMap{x}
 
-	rpc.Do(m, addr, codec, resources)
-	fmt.Println(x)
+	square := SquareMap{x}
+	err := grideng.Do(square, addr, codec, resources, []string{"-slave", "-mode=square"})
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	prnt := PrintMap{x}
+	err = grideng.Do(prnt, addr, codec, resources, []string{"-slave", "-mode=print"})
+	if err != nil {
+		log.Fatal(err)
+	}
 }

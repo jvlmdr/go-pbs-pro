@@ -1,4 +1,4 @@
-package rpc
+package grideng
 
 // May operate in-place, therefore only Input() should be used before Do() and only Output() should be used after Do().
 type Task interface {

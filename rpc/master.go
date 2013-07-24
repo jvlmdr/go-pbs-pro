@@ -1,4 +1,4 @@
-package rpc
+package grideng
 
 import (
 	"fmt"
@@ -8,11 +8,15 @@ import (
 
 // Always attempts every task, even if one returns an error.
 // Returns an error if any task returns an error.
-func Do(m Map, addr, codec, resources string) error {
+func Do(m Map, addr, codecName, resources string, slaveArgs []string) error {
+	codec, err := ServerCodecByName(codecName)
+	if err != nil {
+		return err
+	}
+
 	// Queue up task indices.
 	todo := make(chan int)
 	go countTo(m.Len(), todo)
-
 	// When the server receives a task's result, it is sent down this channel.
 	// If the task succeeds, a nil error is sent.
 	errs := make(chan error)
@@ -22,33 +26,24 @@ func Do(m Map, addr, codec, resources string) error {
 	done := make(chan error, 1)
 	go func() { done <- receiveResults(m.Len(), errs) }()
 
-	// Send result of qsub down this channel when it exits.
-	qsub := make(chan error, 1)
-
 	// Open port.
 	l, err := net.Listen("tcp", addr)
 	if err != nil {
 		return err
 	}
-
+	defer l.Close()
 	// Start listening for requests.
 	go serveRequests(m, l, codec, todo, errs)
 
 	// Prepare to start qsub.
 	var args []string
-	args = append(args, "-slave")
+	args = append(args, slaveArgs...)
 	args = append(args, fmt.Sprintf("-addr=%s", addr))
-	args = append(args, fmt.Sprintf("-codec=%s", codec))
-
+	args = append(args, fmt.Sprintf("-codec=%s", codecName))
+	// Send result of qsub down this channel when it exits.
+	qsub := make(chan error, 1)
 	// Call qsub and close the port when it finishes.
-	go func() {
-		// Keep port open until qsub closes.
-		defer l.Close()
-		// Execute qsub synchronously.
-		err := submit(m.Len(), resources, args)
-		log.Println("qsub finished")
-		qsub <- err
-	}()
+	go func() { qsub <- submit(m.Len(), resources, args) }()
 
 	// Wait for either qsub to exit or all tasks to finish.
 	// Buffer both channels so that if we return for another reason, the routines can still end.
@@ -67,21 +62,6 @@ func Do(m Map, addr, codec, resources string) error {
 			// This could result in a hang!
 			log.Println("qsub exited without incident")
 		}
-	}
-}
-
-// Accept() will trigger an error when the listener is closed.
-// This error should be ignored if all jobs have finished, therefore the channel buffer size should be at least 1.
-func serveRequests(m Map, l net.Listener, codec string, todo <-chan int, errs chan<- error) {
-	for {
-		conn, err := l.Accept()
-		if err != nil {
-			continue
-		}
-		go func() {
-			defer conn.Close()
-			handle(m, conn, codec, todo, errs)
-		}()
 	}
 }
 

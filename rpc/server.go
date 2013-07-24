@@ -1,22 +1,31 @@
-package rpc
+package grideng
 
 import (
 	"errors"
 	"fmt"
 	"io"
 	"log"
+	"net"
 )
 
-func handle(m Map, conn io.ReadWriter, codecName string, todo <-chan int, errs chan<- error) {
-	// Get codec.
-	codec, err := MakeServerCodecByName(codecName, conn)
-	if err != nil {
-		log.Printf("Could not create server codec \"%s\": %v", codecName, err)
-		return
+// Accept() will trigger an error when the listener is closed.
+// This error should be ignored if all jobs have finished, therefore the channel buffer size should be at least 1.
+func serveRequests(m Map, l net.Listener, codec ServerCodec, todo <-chan int, errs chan<- error) {
+	for {
+		conn, err := l.Accept()
+		if err != nil {
+			break
+		}
+		go func() {
+			defer conn.Close()
+			handle(m, conn, codec, todo, errs)
+		}()
 	}
+}
 
+func handle(m Map, conn io.ReadWriter, codec ServerCodec, todo <-chan int, errs chan<- error) {
 	// Read request type.
-	request, err := codec.ReadRequest()
+	request, err := codec.ReadRequest(conn)
 	if err != nil {
 		log.Println("Could not read request:", err)
 		return
@@ -31,7 +40,7 @@ func handle(m Map, conn io.ReadWriter, codecName string, todo <-chan int, errs c
 		index := <-todo
 		// Prepare header and send input.
 		header := InputResponseHeader{index}
-		if err := codec.WriteResponse(header, m.Input(index)); err != nil {
+		if err := codec.WriteResponse(conn, header, m.Input(index)); err != nil {
 			log.Println("Could not write response to input request:", err)
 			return
 		}

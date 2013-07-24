@@ -1,4 +1,4 @@
-package rpc
+package grideng
 
 import (
 	"bufio"
@@ -70,15 +70,11 @@ func marshal(x interface{}) (rawMessage, error) {
 //
 //
 //
-type jsonClientCodec struct {
-	Conn io.ReadWriter
-}
+type jsonClientCodec struct{}
 
-func MakeJSONClientCodec(conn io.ReadWriter) ClientCodec {
-	return jsonClientCodec{conn}
-}
+func MakeJSONClientCodec() ClientCodec { return jsonClientCodec{} }
 
-func (c jsonClientCodec) WriteRequest(typ string, header interface{}, body interface{}) error {
+func (c jsonClientCodec) WriteRequest(conn io.ReadWriter, typ string, header interface{}, body interface{}) error {
 	headerMessage, err := marshal(header)
 	if err != nil {
 		return err
@@ -89,7 +85,7 @@ func (c jsonClientCodec) WriteRequest(typ string, header interface{}, body inter
 	}
 	req := jsonRequest{typ, headerMessage, bodyMessage}
 
-	buf := bufio.NewWriter(c.Conn)
+	buf := bufio.NewWriter(conn)
 	enc := json.NewEncoder(buf)
 	if err := enc.Encode(req); err != nil {
 		return err
@@ -97,10 +93,10 @@ func (c jsonClientCodec) WriteRequest(typ string, header interface{}, body inter
 	return buf.Flush()
 }
 
-func (c jsonClientCodec) ReadResponse() (Reader, error) {
+func (c jsonClientCodec) ReadResponse(conn io.ReadWriter) (Reader, error) {
 	var response jsonResponse
-	// buf := bufio.NewReader(c.Conn)
-	dec := json.NewDecoder(c.Conn)
+	// buf := bufio.NewReader(conn)
+	dec := json.NewDecoder(conn)
 	if err := dec.Decode(&response); err != nil {
 		return nil, err
 	}
@@ -110,25 +106,21 @@ func (c jsonClientCodec) ReadResponse() (Reader, error) {
 //
 //
 //
-type jsonServerCodec struct {
-	Conn io.ReadWriter
-}
+type jsonServerCodec struct{}
 
-func MakeJSONServerCodec(conn io.ReadWriter) ServerCodec {
-	return jsonServerCodec{conn}
-}
+func MakeJSONServerCodec() ServerCodec { return jsonServerCodec{} }
 
-func (c jsonServerCodec) ReadRequest() (RequestReader, error) {
+func (c jsonServerCodec) ReadRequest(conn io.ReadWriter) (RequestReader, error) {
 	var request jsonRequest
-	// buf := bufio.NewReader(c.Conn)
-	dec := json.NewDecoder(c.Conn)
+	// buf := bufio.NewReader(conn)
+	dec := json.NewDecoder(conn)
 	if err := dec.Decode(&request); err != nil {
 		return nil, err
 	}
 	return request, nil
 }
 
-func (c jsonServerCodec) WriteResponse(header interface{}, body interface{}) error {
+func (c jsonServerCodec) WriteResponse(conn io.ReadWriter, header interface{}, body interface{}) error {
 	headerMessage, err := marshal(header)
 	if err != nil {
 		return err
@@ -139,7 +131,7 @@ func (c jsonServerCodec) WriteResponse(header interface{}, body interface{}) err
 	}
 	response := jsonResponse{headerMessage, bodyMessage}
 
-	buf := bufio.NewWriter(c.Conn)
+	buf := bufio.NewWriter(conn)
 	enc := json.NewEncoder(buf)
 	if err := enc.Encode(response); err != nil {
 		return err

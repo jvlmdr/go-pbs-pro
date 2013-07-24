@@ -1,4 +1,4 @@
-package rpc
+package grideng
 
 import (
 	"log"
@@ -9,36 +9,36 @@ import (
 // Never returns.
 // If everything succeeds, it calls os.Exit(0).
 // Otherwise, it exits with some other status code.
-func ExecSlave(task Task, addr, codec string) {
+func ExecSlave(task Task, addr, codecName string) {
+	codec, err := ClientCodecByName(codecName)
+	if err != nil {
+		log.Fatalf("Could not create client codec \"%s\": %v", codecName, err)
+	}
+
 	// Make request to receive input from server.
 	inputResponse := receiveInput(task, addr, codec)
 	index := inputResponse.Index
 	// Do the thing.
-	err := task.Do()
+	err = task.Do()
 	// Make request to send output to server.
 	sendOutput(task, index, err, addr, codec)
 	os.Exit(0)
 }
 
 // Returns task index.
-func receiveInput(task Task, addr, codecName string) InputResponseHeader {
+func receiveInput(task Task, addr string, codec ClientCodec) InputResponseHeader {
 	conn, err := net.Dial("tcp", addr)
 	if err != nil {
 		log.Fatalln("Could not connect to server:", err)
 	}
 	defer conn.Close()
 
-	// Get codec.
-	codec, err := MakeClientCodecByName(codecName, conn)
-	if err != nil {
-		log.Fatalf("Could not create client codec \"%s\": %v", codecName, err)
-	}
 	// Send request.
-	if err := codec.WriteRequest(InputRequest, nil, nil); err != nil {
+	if err := codec.WriteRequest(conn, InputRequest, nil, nil); err != nil {
 		log.Fatalln("Could not write input request:", err)
 	}
 	// Read response type.
-	response, err := codec.ReadResponse()
+	response, err := codec.ReadResponse(conn)
 	if err != nil {
 		log.Fatalln("Could not read response to input request:", err)
 	}
@@ -55,25 +55,20 @@ func receiveInput(task Task, addr, codecName string) InputResponseHeader {
 	return header
 }
 
-func sendOutput(task Task, index int, taskErr error, addr, codecName string) {
+func sendOutput(task Task, index int, taskErr error, addr string, codec ClientCodec) {
 	conn, err := net.Dial("tcp", addr)
 	if err != nil {
 		log.Fatalln("Could not connect to server:", err)
 	}
 	defer conn.Close()
 
-	// Get codec.
-	codec, err := MakeClientCodecByName(codecName, conn)
-	if err != nil {
-		log.Fatalf("Could not create client codec \"%s\": %v", codecName, err)
-	}
 	// Prepare header.
 	header := OutputRequestHeader{Index: index}
 	if taskErr != nil {
 		header.Error = taskErr.Error()
 	}
 	// Send request.
-	if err := codec.WriteRequest(OutputRequest, header, task.Output()); err != nil {
+	if err := codec.WriteRequest(conn, OutputRequest, header, task.Output()); err != nil {
 		log.Fatalln("Could not write request to send output:", err)
 	}
 	// No data to receive. Done.

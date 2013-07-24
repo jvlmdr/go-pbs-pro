@@ -1,29 +1,29 @@
-package rpc
+package grideng
 
-import (
-	"errors"
-	"io"
+import "errors"
+
+const (
+	JSONCodec = "json"
+	GobCodec  = "gob"
 )
 
 var (
 	ErrCodecName = errors.New("unknown codec")
 )
 
-func MakeClientCodecByName(name string, conn io.ReadWriter) (ClientCodec, error) {
+func ClientCodecByName(name string) (ClientCodec, error) {
 	switch name {
-	case "json":
-		codec := MakeJSONClientCodec(conn)
-		return codec, nil
+	case JSONCodec:
+		return jsonClientCodec{}, nil
 	default:
 	}
 	return nil, ErrCodecName
 }
 
-func MakeServerCodecByName(name string, conn io.ReadWriter) (ServerCodec, error) {
+func ServerCodecByName(name string) (ServerCodec, error) {
 	switch name {
-	case "json":
-		codec := MakeJSONServerCodec(conn)
-		return codec, nil
+	case JSONCodec:
+		return jsonServerCodec{}, nil
 	default:
 	}
 	return nil, ErrCodecName
