@@ -49,8 +49,12 @@ func receiveInput(task Task, addr string, codec ClientCodec) InputResponseHeader
 	}
 	log.Println("Task index:", header.Index)
 	// Read response body.
-	if err := response.ReadBody(task.Input()); err != nil {
-		log.Fatalln("Could not read body of response to input request:", err)
+	input := task.Input()
+	// It is possible for tasks to have no input.
+	if input != nil {
+		if err := response.ReadBody(input); err != nil {
+			log.Fatalln("Could not read body of response to input request:", err)
+		}
 	}
 	return header
 }

@@ -58,8 +58,10 @@ func main() {
 		x[i] = float64(i)
 	}
 
+	var err error
+
 	square := SquareMap{x}
-	err := grideng.Do(square, addr, codec, resources, []string{"-slave", "-mode=square"})
+	err = grideng.Do(square, addr, codec, resources, []string{"-slave", "-mode=square"})
 	if err != nil {
 		log.Fatal(err)
 	}

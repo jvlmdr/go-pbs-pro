@@ -56,9 +56,13 @@ func handle(m Map, conn io.ReadWriter, codec ServerCodec, todo <-chan int, errs 
 		// Is accessing m.Output thread-safe?
 		// Perhaps the output should be passed down the channel?
 		// But the type is unknown...
-		if err := request.ReadBody(m.Output(index)); err != nil {
-			fmt.Println("Could not read body of request to send output:", err)
-			return
+		output := m.Output(index)
+		// It is possible for tasks to have no output.
+		if output != nil {
+			if err := request.ReadBody(output); err != nil {
+				fmt.Println("Could not read body of request to send output:", err)
+				return
+			}
 		}
 		// No need to send response to client.
 		// Report that a job is finished.

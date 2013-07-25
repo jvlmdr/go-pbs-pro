@@ -11,7 +11,7 @@ type PrintMap struct {
 
 func (m PrintMap) Len() int                 { return len(m.X) }
 func (m PrintMap) Input(i int) interface{}  { return m.X[i] }
-func (m PrintMap) Output(i int) interface{} { return new(struct{}) }
+func (m PrintMap) Output(i int) interface{} { return nil }
 
 func (m PrintMap) Task(i int) grideng.Task {
 	return &PrintTask{m.X[i]}
@@ -20,7 +20,7 @@ func (m PrintMap) Task(i int) grideng.Task {
 type PrintTask struct{ X float64 }
 
 func (t *PrintTask) Input() interface{} { return &t.X }
-func (t PrintTask) Output() interface{} { return struct{}{} }
+func (t PrintTask) Output() interface{} { return nil }
 
 func (t *PrintTask) Do() error {
 	// This is the actual work.
