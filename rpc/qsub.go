@@ -24,10 +24,6 @@ func submit(n int, resources string, cmdArgs []string) error {
 	if len(resources) > 0 {
 		args = append(args, "-l", resources)
 	}
-	// Redirect stdout.
-	args = append(args, "-o", `stdout-$TASK_ID`)
-	// Redirect stderr.
-	args = append(args, "-e", `stderr-$TASK_ID`)
 
 	// Name of executable to run.
 	args = append(args, os.Args[0])
