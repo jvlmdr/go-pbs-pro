@@ -1,74 +1,75 @@
 package main
 
 import (
+	"github.com/jackvalmadre/go-grideng/grideng"
+
 	"flag"
 	"fmt"
-	"github.com/jackvalmadre/go-grideng/rpc"
-	"log"
 	"os"
 )
 
 func main() {
-	// Program flags.
-	var n int
-	flag.IntVar(&n, "n", 0, "Number of jobs")
-	// Grid engine flags.
 	var (
-		master    bool
-		slave     bool
-		mode      string
-		addr      string
-		codec     string
-		resources string
+		n int
+		m int
+		d int
 	)
-	flag.BoolVar(&master, "master", false, "Operate in master mode?")
-	flag.BoolVar(&slave, "slave", false, "Operate in slave mode?")
-	flag.StringVar(&mode, "mode", "", `"square" or "print"`)
-	flag.StringVar(&addr, "addr", "", "Address of server")
-	flag.StringVar(&codec, "codec", "json", "Codec (json or gob)")
-	flag.StringVar(&resources, "l", "", "Grid engine resources (qsub -l flag)")
+	flag.IntVar(&n, "n", 8, "Sum squares from 1 to n")
+	flag.IntVar(&m, "m", 8, "Number of vectors")
+	flag.IntVar(&d, "d", 8, "Number of dimensions for vector")
+
+	grideng.Register("square", &grideng.Func{func(x float64) float64 { return x * x }})
+	grideng.Register("add-const", &grideng.Func{func(x, y float64) float64 { return x + y }})
+	grideng.Register("add", &grideng.ReduceFunc{func(x, y float64) float64 { return x + y }})
+
+	grideng.Register("vec-2-norm", &grideng.Func{Norm})
+	grideng.Register("vec-p-norm", &grideng.Func{NormP})
 
 	flag.Parse()
+	grideng.ExecIfSlave()
 
-	if slave && !master {
-		var task grideng.Task
-		switch mode {
-		case "square":
-			task = new(SquareTask)
-		case "print":
-			task = new(PrintTask)
-		default:
-			fmt.Fprintf(os.Stderr, "Invalid mode \"%s\"\n", mode)
-			os.Exit(1)
-		}
-		grideng.ExecSlave(task, addr, codec)
-	}
-
-	if slave == master {
-		fmt.Fprintln(os.Stderr, "Must specify master xor slave")
-		os.Exit(1)
-	}
-
-	if n <= 0 {
-		fmt.Fprintln(os.Stderr, "Require n > 0")
-		os.Exit(1)
-	}
 	x := make([]float64, n)
 	for i := 0; i < n; i++ {
-		x[i] = float64(i)
+		x[i] = float64(i + 1)
 	}
 
-	var err error
+	// y[i] <- x[i]^2
+	y := make([]float64, n)
+	if err := grideng.Map("square", y, x, nil); err != nil {
+		fmt.Fprintln(os.Stderr, "map:", err)
+	}
+	fmt.Println(y)
 
-	square := SquareMap{x}
-	err = grideng.Do(square, addr, codec, resources, []string{"-slave", "-mode=square"})
-	if err != nil {
-		log.Fatal(err)
+	// z[i] <- x[i] - (n+1)
+	z := make([]float64, n)
+	if err := grideng.Map("add-const", z, x, -(n + 1)); err != nil {
+		fmt.Fprintln(os.Stderr, "map:", err)
+	}
+	fmt.Println(z)
+
+	// total <- sum_{i} x[i]
+	var total float64
+	if err := grideng.Reduce("add", &total, x, nil); err != nil {
+		fmt.Fprintln(os.Stderr, "reduce:", err)
+	}
+	fmt.Println(total)
+
+	vecs := make([]*Vec, m)
+	for i := range vecs {
+		vecs[i] = RandVec(d)
 	}
 
-	prnt := PrintMap{x}
-	err = grideng.Do(prnt, addr, codec, resources, []string{"-slave", "-mode=print"})
-	if err != nil {
-		log.Fatal(err)
+	// norms2[i] <- Norm(vecs[i])
+	norms2 := make([]float64, m)
+	if err := grideng.Map("vec-2-norm", norms2, vecs, nil); err != nil {
+		fmt.Fprintln(os.Stderr, "map:", err)
 	}
+	fmt.Println("norms2:", norms2)
+
+	// norms1[i] <- NormP(vecs[i], 1)
+	norms1 := make([]float64, m)
+	if err := grideng.Map("vec-p-norm", norms1, vecs, 1); err != nil {
+		fmt.Fprintln(os.Stderr, "map:", err)
+	}
+	fmt.Println("norms1:", norms1)
 }

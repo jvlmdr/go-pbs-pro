@@ -1,7 +1,9 @@
 package grideng
 
 import (
-	"log"
+	"encoding/json"
+	"errors"
+	"fmt"
 	"net"
 	"os"
 )
@@ -9,71 +11,71 @@ import (
 // Never returns.
 // If everything succeeds, it calls os.Exit(0).
 // Otherwise, it exits with some other status code.
-func ExecSlave(task Task, addr, codecName string) {
-	codec, err := ClientCodecByName(codecName)
-	if err != nil {
-		log.Fatalf("Could not create client codec \"%s\": %v", codecName, err)
+func ExecIfSlave() {
+	if len(slaveTask) == 0 {
+		return
 	}
 
-	// Make request to receive input from server.
-	inputResponse := receiveInput(task, addr, codec)
-	index := inputResponse.Index
-	// Do the thing.
-	err = task.Do()
-	// Make request to send output to server.
-	sendOutput(task, index, err, addr, codec)
+	// Look up task by name.
+	sub, there := tasks[slaveTask]
+	if !there {
+		panic(fmt.Errorf("task not found: %#v", slaveTask))
+	}
+
+	slave(sub.Task)
 	os.Exit(0)
 }
 
-// Returns task index.
-func receiveInput(task Task, addr string, codec ClientCodec) InputResponseHeader {
-	conn, err := net.Dial("tcp", addr)
+func slave(task Task) {
+	// Request input from the master.
+	x := task.NewInput()
+	p := task.NewConfig()
+	index, err := receiveInput(addrStr, x, p)
 	if err != nil {
-		log.Fatalln("Could not connect to server:", err)
+		panic(err)
 	}
-	defer conn.Close()
 
-	// Send request.
-	if err := codec.WriteRequest(conn, InputRequest, nil, nil); err != nil {
-		log.Fatalln("Could not write input request:", err)
+	y, taskerr := task.Func(x, p)
+	if err := sendOutput(addrStr, index, y, taskerr); err != nil {
+		panic(err)
 	}
-	// Read response type.
-	response, err := codec.ReadResponse(conn)
-	if err != nil {
-		log.Fatalln("Could not read response to input request:", err)
-	}
-	// Read response header.
-	var header InputResponseHeader
-	if err := response.ReadHeader(&header); err != nil {
-		log.Fatalln("Could not read header of response to input request:", err)
-	}
-	log.Println("Task index:", header.Index)
-	// Read response body.
-	input := task.Input()
-	// It is possible for tasks to have no input.
-	if input != nil {
-		if err := response.ReadBody(input); err != nil {
-			log.Fatalln("Could not read body of response to input request:", err)
-		}
-	}
-	return header
 }
 
-func sendOutput(task Task, index int, taskErr error, addr string, codec ClientCodec) {
+// Populates the values referenced by x and p.
+// Returns the task index.
+func receiveInput(addr string, x, p interface{}) (int, error) {
 	conn, err := net.Dial("tcp", addr)
 	if err != nil {
-		log.Fatalln("Could not connect to server:", err)
+		return 0, errors.New("connect to server: " + err.Error())
 	}
 	defer conn.Close()
 
-	// Prepare header.
-	header := OutputRequestHeader{Index: index}
-	if taskErr != nil {
-		header.Error = taskErr.Error()
+	// Send (empty) input request.
+	req := inputReq()
+	if err := json.NewEncoder(conn).Encode(req); err != nil {
+		return 0, errors.New("send input request: " + err.Error())
 	}
-	// Send request.
-	if err := codec.WriteRequest(conn, OutputRequest, header, task.Output()); err != nil {
-		log.Fatalln("Could not write request to send output:", err)
+
+	// Decode response.
+	resp := &inputResp{X: x, P: p}
+	if err := json.NewDecoder(conn).Decode(resp); err != nil {
+		return 0, errors.New("decode input response: " + err.Error())
 	}
+	return resp.Index, nil
+}
+
+func sendOutput(addr string, index int, y interface{}, taskerr error) error {
+	conn, err := net.Dial("tcp", addr)
+	if err != nil {
+		return errors.New("connect to server: " + err.Error())
+	}
+	defer conn.Close()
+
+	req := &outputReq{index, y, taskerr}
+	if err := json.NewEncoder(conn).Encode(req.Generic()); err != nil {
+		return errors.New("send output request: " + err.Error())
+	}
+
 	// No data to receive. Done.
+	return nil
 }

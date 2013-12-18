@@ -8,7 +8,7 @@ import (
 	"os/exec"
 )
 
-func submit(n int, resources string, cmdArgs []string) error {
+func submit(n int, res string, cmdArgs []string) error {
 	var args []string
 	// Submitting a binary job.
 	args = append(args, "-b", "y")
@@ -21,8 +21,8 @@ func submit(n int, resources string, cmdArgs []string) error {
 	// Use same environment variables.
 	args = append(args, "-t", fmt.Sprintf("1-%d", n))
 	// Set resources.
-	if len(resources) > 0 {
-		args = append(args, "-l", resources)
+	if len(res) > 0 {
+		args = append(args, "-l", res)
 	}
 
 	// Name of executable to run.
