@@ -35,11 +35,11 @@ func halve(name string, x, p interface{}) (interface{}, error) {
 	n := reflect.ValueOf(x).Len()
 	floor, ceil := n/2, (n+1)/2
 
-	pairs := make([]*Pair, floor)
+	pairs := make([]*pair, floor)
 	for i := range pairs {
 		a := xval.Index(2 * i).Interface()
 		b := xval.Index(2*i + 1).Interface()
-		pairs[i] = &Pair{a, b}
+		pairs[i] = &pair{a, b}
 	}
 
 	// Make a slice to assign the results to.
@@ -58,7 +58,7 @@ func halve(name string, x, p interface{}) (interface{}, error) {
 }
 
 // Reduce is performed as a series of maps on lists of pairs.
-type Pair struct {
+type pair struct {
 	A, B interface{}
 }
 
@@ -73,12 +73,12 @@ type ReduceFunc struct {
 	F interface{}
 }
 
-// Returns a Pair containing the types of the first two arguments.
+// Returns a pair containing the types of the first two arguments.
 func (t *ReduceFunc) NewInput() interface{} {
 	f := reflect.ValueOf(t.F)
 	a := reflect.New(f.Type().In(0)).Interface()
 	b := reflect.New(f.Type().In(1)).Interface()
-	return &Pair{a, b}
+	return &pair{a, b}
 }
 
 // Returns a new object of the type of the third argument.
@@ -100,11 +100,11 @@ func (t *ReduceFunc) NewOutput() interface{} {
 // If function only takes one argument then p is ignored.
 func (t *ReduceFunc) Func(x, p interface{}) (interface{}, error) {
 	f := reflect.ValueOf(t.F)
-	// Get two elements from x. Panics if x is not a *Pair.
-	pair := x.(*Pair)
+	// Get two elements from x. Panics if x is not a *pair.
+	ab := x.(*pair)
 	in := []reflect.Value{
-		reflect.ValueOf(pair.A).Elem(),
-		reflect.ValueOf(pair.B).Elem(),
+		reflect.ValueOf(ab.A).Elem(),
+		reflect.ValueOf(ab.B).Elem(),
 	}
 	// Only use third argument if function accepts one.
 	if f.Type().NumIn() > 2 {
