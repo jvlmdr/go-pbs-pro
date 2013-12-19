@@ -19,16 +19,24 @@ func main() {
 	flag.IntVar(&m, "m", 8, "Number of vectors")
 	flag.IntVar(&d, "d", 8, "Number of dimensions for vector")
 
-	grideng.Register("square", grideng.Func(func(x float64) float64 { return x * x }))
-	grideng.Register("add-const", grideng.Func(func(x, y float64) float64 { return x + y }))
-	grideng.Register("add", grideng.ReduceFunc(func(x, y float64) float64 { return x + y }))
-	grideng.Register("norm", grideng.ReduceFunc(func(x, y, p float64) float64 {
-		return math.Pow(math.Pow(x, p)+math.Pow(y, p), 1/p)
-	}))
+	grideng.Register("square", grideng.Func(
+		func(x float64) float64 { return x * x },
+	))
+	grideng.Register("add-const", grideng.Func(
+		func(x, y float64) float64 { return x + y },
+	))
+	grideng.Register("add", grideng.ReduceFunc(
+		func(x, y float64) float64 { return x + y },
+	))
+	grideng.Register("norm", grideng.ReduceFunc(
+		func(x, y, p float64) float64 {
+			return math.Pow(math.Pow(x, p)+math.Pow(y, p), 1/p)
+		},
+	))
 
 	grideng.Register("vec-2-norm", grideng.Func(Norm))
 	grideng.Register("vec-p-norm", grideng.Func(NormP))
-	grideng.Register("add-vec", grideng.ReduceFunc(AddVec))
+	grideng.Register("vec-add", grideng.ReduceFunc(AddVec))
 
 	flag.Parse()
 	grideng.ExecIfSlave()
@@ -88,8 +96,8 @@ func main() {
 
 	// Compute sum of all vectors.
 	var vecsum *Vec
-	if err := grideng.Reduce("add-vec", &vecsum, vecs, nil); err != nil {
+	if err := grideng.Reduce("vec-add", &vecsum, vecs, nil); err != nil {
 		fmt.Fprintln(os.Stderr, "map:", err)
 	}
-	fmt.Println("vecsum:", sum)
+	fmt.Println("vecsum:", vecsum)
 }

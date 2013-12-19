@@ -11,7 +11,9 @@ Examples
 
 An example of how to use the package for a simple map operation:
 	func main() {
-		grideng.Register("square", grideng.Func(func(x float64) float64 { return x * x }))
+		grideng.Register("square", grideng.Func(
+			func(x float64) float64 { return x * x },
+		))
 		flag.Parse()
 		grideng.ExecIfSlave()
 
@@ -43,7 +45,9 @@ To call a function which accepts a constant parameter for all x[i]:
 	err := grideng.Map("pow", y, x, float64(2))
 
 To do a reduce operation:
-	grideng.Register("add", grideng.ReduceFunc(func(x, y float64) float64 { return x + y }))
+	grideng.Register("add", grideng.ReduceFunc(
+		func(x, y float64) float64 { return x + y },
+	))
 	// ...
 	var total float64
 	err := grideng.Reduce("add", &total, x, nil)
