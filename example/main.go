@@ -1,124 +1,95 @@
 package main
 
 import (
+	"github.com/jackvalmadre/go-grideng/grideng"
+
 	"flag"
 	"fmt"
-	"github.com/jackvalmadre/go-grideng"
-	"io"
-	"log"
+	"math"
+	"os"
 )
 
-// Input is an integer.
-type Input int
-
-// Input has a unique identifier.
-func (input Input) Name() string { return fmt.Sprint(int(input)) }
-
-// Output is an integer.
-type Output int
-
-// Task is defined by an input and an execute method.
-type Task struct{ X Input }
-
-func (task Task) Input() grideng.Input { return task.X }
-
-// Map x to x squared.
-func (task Task) Execute() (grideng.Output, error) {
-	x := int(task.X)
-	y := x * x
-	return Output(y), nil
-}
-
 func main() {
-	slave := flag.Bool("slave", false, "Run in slave mode?")
-	n := flag.Int("n", 32, "Number of jobs")
+	var (
+		n int
+		m int
+		d int
+	)
+	flag.IntVar(&n, "n", 8, "Sum squares from 1 to n")
+	flag.IntVar(&m, "m", 8, "Number of vectors")
+	flag.IntVar(&d, "d", 8, "Number of dimensions for vector")
+
+	grideng.Register("square", grideng.Func(func(x float64) float64 { return x * x }))
+	grideng.Register("add-const", grideng.Func(func(x, y float64) float64 { return x + y }))
+	grideng.Register("add", grideng.ReduceFunc(func(x, y float64) float64 { return x + y }))
+	grideng.Register("norm", grideng.ReduceFunc(func(x, y, p float64) float64 {
+		return math.Pow(math.Pow(x, p)+math.Pow(y, p), 1/p)
+	}))
+
+	grideng.Register("vec-2-norm", grideng.Func(Norm))
+	grideng.Register("vec-p-norm", grideng.Func(NormP))
+	grideng.Register("add-vec", grideng.ReduceFunc(AddVec))
+
 	flag.Parse()
+	grideng.ExecIfSlave()
 
-	if *slave {
-		// Get Grid Engine task ID.
-		num, err := grideng.TaskNumFromEnv("SGE_TASK_ID")
-		if err != nil {
-			panic(err)
-		}
-		// Be a slave.
-		grideng.Slave(num, InputReader{})
-		return
+	x := make([]float64, n)
+	for i := 0; i < n; i++ {
+		x[i] = float64(i + 1)
 	}
 
-	// Populate inputs.
-	x := make([]int, *n)
-	for i := range x {
-		x[i] = i + 1
+	vecs := make([]*Vec, m)
+	for i := range vecs {
+		vecs[i] = RandVec(d)
 	}
-	// Execute all tasks.
-	files, err := grideng.Master(InputList(x), "", []string{"-slave"})
-	if err != nil {
-		log.Fatal(err)
+
+	// Square all numbers.
+	y := make([]float64, n)
+	if err := grideng.Map("square", y, x, nil); err != nil {
+		fmt.Fprintln(os.Stderr, "map:", err)
 	}
-	// Load outputs.
-	y := make([]int, *n)
-	grideng.LoadOutputs(OutputList(y), files)
+	fmt.Println(y)
 
-	for i := range y {
-		fmt.Printf("%6d: %6d -> %6d\n", i, x[i], y[i])
+	// Subtract a constant from all numbers.
+	z := make([]float64, n)
+	if err := grideng.Map("add-const", z, x, -(n + 1)); err != nil {
+		fmt.Fprintln(os.Stderr, "map:", err)
 	}
-	// Output:
-	//      0:      1 ->      1
-	//      1:      2 ->      4
-	//      2:      3 ->      9
-	// ...
-	//     31:     32 ->   1024
-}
+	fmt.Println(z)
 
-type InputList []int
-
-func (list InputList) Len() int               { return len(list) }
-func (list InputList) At(i int) grideng.Input { return Input(list[i]) }
-
-// How to write an input.
-func (input Input) Write(w io.Writer) error {
-	if _, err := fmt.Fprintln(w, int(input)); err != nil {
-		return err
+	// Compute sum of all numbers in a list.
+	var sum float64
+	if err := grideng.Reduce("add", &sum, x, nil); err != nil {
+		fmt.Fprintln(os.Stderr, "reduce:", err)
 	}
-	return nil
-}
+	fmt.Println("sum:", sum)
 
-type InputReader struct{}
-
-// How to read an input (into a task).
-func (reader InputReader) Read(r io.Reader) (grideng.Task, error) {
-	x, err := readInt(r)
-	if err != nil {
-		return nil, err
+	// Compute 1.5-norm.
+	// Demonstrates reduce function with a parameter.
+	var norm float64
+	if err := grideng.Reduce("norm", &norm, x, 1.5); err != nil {
+		fmt.Fprintln(os.Stderr, "reduce:", err)
 	}
-	input := Input(x)
-	task := Task{input}
-	return task, nil
-}
+	fmt.Println("1.5-norm:", norm)
 
-// How to write an output.
-func (output Output) Write(w io.Writer) error {
-	if _, err := fmt.Fprintln(w, int(output)); err != nil {
-		return err
+	// Compute 2-norm of each vector.
+	norms2 := make([]float64, m)
+	if err := grideng.Map("vec-2-norm", norms2, vecs, nil); err != nil {
+		fmt.Fprintln(os.Stderr, "map:", err)
 	}
-	return nil
-}
+	fmt.Println("norms2:", norms2)
 
-type OutputList []int
-
-// How to read an output (into a list).
-func (list OutputList) Read(i int, r io.Reader) error {
-	x, err := readInt(r)
-	if err != nil {
-		return err
+	// Compute 1-norm of each vector.
+	norms1 := make([]float64, m)
+	if err := grideng.Map("vec-p-norm", norms1, vecs, 1); err != nil {
+		fmt.Fprintln(os.Stderr, "map:", err)
 	}
-	list[i] = x
-	return nil
-}
+	fmt.Println("norms1:", norms1)
 
-// Reads single integer from file.
-func readInt(r io.Reader) (int, error) {
-	var x int
-	_, err := fmt.Fscanln(r, &x)
-	return x, err
+	// Compute sum of all vectors.
+	var vecsum *Vec
+	if err := grideng.Reduce("add-vec", &vecsum, vecs, nil); err != nil {
+		fmt.Fprintln(os.Stderr, "map:", err)
+	}
+	fmt.Println("vecsum:", sum)
 }
