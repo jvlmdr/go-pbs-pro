@@ -32,3 +32,11 @@ func RandVec(n int) *Vec {
 	}
 	return x
 }
+
+func AddVec(x, y *Vec) *Vec {
+	z := NewVec(len(x.Elems))
+	for i := range z.Elems {
+		z.Elems[i] = x.Elems[i] + y.Elems[i]
+	}
+	return z
+}

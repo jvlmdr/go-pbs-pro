@@ -1,10 +1,17 @@
 package grideng
 
-import "reflect"
+import (
+	"fmt"
+	"reflect"
+)
 
+// Reduce is implemented as log(n) maps from lists of pairs to single values.
+// Each map corresponds to one level of a binary tree.
+//
+// x is a slice of type []T.
+// name corresponds to a task which takes a pair of objects of type T
+// and returns one object of type T.
 // y is a reference to a single output value (e.g. pointer, interface).
-// name corresponds to a task which takes a pair of objects of type T and returns an T.
-// x is a slice of type T.
 // p is an optional configuration parameter.
 func Reduce(name string, y, x, p interface{}) error {
 	out, err := reduce(name, x, p)
@@ -62,19 +69,50 @@ type pair struct {
 	A, B interface{}
 }
 
-// Task defined by a function.
+// Defines a reduce task from a function.
+// A reduce task maps pairs of values to a single value.
 //
-// The function must take either one or two arguments and
+// The function f must take either two or three arguments and
 // have either one or two return values.
-// The second return value must have type error.
-// The argument and first return value must be concrete types
-// for use with reflect.New().
-type ReduceFunc struct {
+// The first two arguments and the first return value must have the same type.
+// This type must be concrete.
+// The second return value must be assignable to error.
+//
+// Examples:
+//	sum := grideng.ReduceFunc(func(x, y float64) float64 { return x + y })
+//	norm := grideng.ReduceFunc(func(x, y float64) float64 { return math.Sqrt(x*x + y*y) }
+//	pnorm := grideng.ReduceFunc(func(x, y, p float64) float64 {
+// 		return math.Pow(math.Pow(x, p)+math.Pow(y, p), 1/p)
+// 	})
+//
+// Reduce functions usually have the properties
+//	1. f(x[0:n]) = f(f(x[0:m]), f(x[m:n]))
+//	             = f(...f(f(x[0:2]), f(x[2:4])), ...)
+//	2. f(x[i]) = x[i]
+// and therefore we define them in terms of their two-input case alone.
+//
+// ReduceFunc tasks should be invoked using Reduce() not Map().
+func ReduceFunc(f interface{}) Task {
+	fval := reflect.ValueOf(f)
+	if fval.Kind() != reflect.Func {
+		panic(fmt.Sprintf("not func: %v", fval.Kind()))
+	}
+	if n := fval.Type().NumIn(); n < 2 || n > 3 {
+		panic(fmt.Sprintf("number of arguments: %d", n))
+	}
+	if n := fval.Type().NumOut(); n < 1 || n > 2 {
+		panic(fmt.Sprintf("number of return values: %d", n))
+	}
+	return &reduceFuncTask{f}
+}
+
+// Task defined by a function.
+type reduceFuncTask struct {
 	F interface{}
 }
 
 // Returns a pair containing the types of the first two arguments.
-func (t *ReduceFunc) NewInput() interface{} {
+func (t *reduceFuncTask) NewInput() interface{} {
 	f := reflect.ValueOf(t.F)
 	a := reflect.New(f.Type().In(0)).Interface()
 	b := reflect.New(f.Type().In(1)).Interface()
@@ -83,7 +121,7 @@ func (t *ReduceFunc) NewInput() interface{} {
 
 // Returns a new object of the type of the third argument.
 // Returns nil if there is no second argument.
-func (t *ReduceFunc) NewConfig() interface{} {
+func (t *reduceFuncTask) NewConfig() interface{} {
 	f := reflect.ValueOf(t.F)
 	if f.Type().NumIn() < 3 {
 		return nil
@@ -92,13 +130,13 @@ func (t *ReduceFunc) NewConfig() interface{} {
 }
 
 // Returns a new object of the type of the first return value.
-func (t *ReduceFunc) NewOutput() interface{} {
+func (t *reduceFuncTask) NewOutput() interface{} {
 	f := reflect.ValueOf(t.F)
 	return reflect.New(f.Type().Out(0)).Interface()
 }
 
 // If function only takes one argument then p is ignored.
-func (t *ReduceFunc) Func(x, p interface{}) (interface{}, error) {
+func (t *reduceFuncTask) Func(x, p interface{}) (interface{}, error) {
 	f := reflect.ValueOf(t.F)
 	// Get two elements from x. Panics if x is not a *pair.
 	ab := x.(*pair)

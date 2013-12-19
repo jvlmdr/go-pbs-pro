@@ -8,9 +8,7 @@ import (
 	"os"
 )
 
-// Never returns.
-// If everything succeeds, it calls os.Exit(0).
-// Otherwise, it exits with some other status code.
+// If the process is a slave, this function never returns.
 func ExecIfSlave() {
 	if len(slaveTask) == 0 {
 		return

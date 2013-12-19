@@ -23,10 +23,8 @@ type qsubTask struct {
 	Res *string
 }
 
-// Registers a task, described by a unique name and a function.
-// f may be either a function or a struct with a Call() method.
+// Registers a task to a name.
 // The name must be able to be part of a command-line flag.
-// If f is a struct then it must be a pointer to a struct for use with Decode().
 func Register(name string, task Task) {
 	_, used := tasks[name]
 	if used {

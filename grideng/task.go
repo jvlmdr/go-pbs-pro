@@ -1,10 +1,13 @@
 package grideng
 
-import "reflect"
+import (
+	"fmt"
+	"reflect"
+)
 
 // Describes a task to execute on a remote host.
 //
-// Should capture the minimum required by master and slave.
+// Captures the minimum required by master and slave.
 //
 // NewInput(), NewConfig() and Func() are called by the slave,
 // NewOutput() is called by the master.
@@ -17,7 +20,7 @@ type Task interface {
 	// or nil if there are no config parameters.
 	NewConfig() interface{}
 
-	// Performs the task.
+	// Performs the task given input x and parameters p.
 	Func(x, p interface{}) (interface{}, error)
 
 	// Returns an output object which can be decoded into.
@@ -26,26 +29,47 @@ type Task interface {
 	NewOutput() interface{}
 }
 
-// Task defined by a function.
+// Defines a map task from a function.
 //
-// The function must take either one or two arguments and
+// The function f must take either one or two arguments and
 // have either one or two return values.
-// The second return value must have type error.
+// The second return value must be assignable to error.
 // The argument and first return value must be concrete types
 // for use with reflect.New().
-type Func struct {
+//
+// Examples:
+//	sqr := grideng.Func(func(x float64) float64 { return x * x })
+//	sqrt := grideng.Func(math.Sqrt)
+//	pow := grideng.Func(math.Pow)
+//	linop := grideng.Func(func(x *Vec, a *Mat) float64 { a.Mul(x) })
+func Func(f interface{}) Task {
+	fval := reflect.ValueOf(f)
+	if fval.Kind() != reflect.Func {
+		panic(fmt.Sprintf("not func: %v", fval.Kind()))
+	}
+	if n := fval.Type().NumIn(); n < 1 || n > 2 {
+		panic(fmt.Sprintf("number of arguments: %d", n))
+	}
+	if n := fval.Type().NumOut(); n < 1 || n > 2 {
+		panic(fmt.Sprintf("number of return values: %d", n))
+	}
+	return &funcTask{f}
+}
+
+// Task defined by a function.
+type funcTask struct {
 	F interface{}
 }
 
 // Returns a new object of the type of the first argument.
-func (t *Func) NewInput() interface{} {
+func (t *funcTask) NewInput() interface{} {
 	f := reflect.ValueOf(t.F)
 	return reflect.New(f.Type().In(0)).Interface()
 }
 
 // Returns a new object of the type of the second argument.
 // Returns nil if there is no second argument.
-func (t *Func) NewConfig() interface{} {
+func (t *funcTask) NewConfig() interface{} {
 	f := reflect.ValueOf(t.F)
 	if f.Type().NumIn() < 2 {
 		return nil
@@ -54,13 +78,13 @@ func (t *Func) NewConfig() interface{} {
 }
 
 // Returns a new object of the type of the first return value.
-func (t *Func) NewOutput() interface{} {
+func (t *funcTask) NewOutput() interface{} {
 	f := reflect.ValueOf(t.F)
 	return reflect.New(f.Type().Out(0)).Interface()
 }
 
 // If function only takes one argument then p is ignored.
-func (t *Func) Func(x, p interface{}) (interface{}, error) {
+func (t *funcTask) Func(x, p interface{}) (interface{}, error) {
 	f := reflect.ValueOf(t.F)
 	in := []reflect.Value{reflect.ValueOf(x).Elem()}
 	// Only use second argument if function accepts one.
