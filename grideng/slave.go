@@ -69,11 +69,21 @@ func sendOutput(addr string, index int, y interface{}, taskerr error) error {
 	}
 	defer conn.Close()
 
-	req := &outputReq{index, y, taskerr}
+	req := &outputReq{index, y, errToStr(taskerr)}
 	if err := json.NewEncoder(conn).Encode(req.Generic()); err != nil {
 		return errors.New("send output request: " + err.Error())
 	}
 
 	// No data to receive. Done.
 	return nil
+}
+
+// Assumes no difference between nil error and empty string
+// for serialization purposes.
+func errToStr(err error) *string {
+	if err == nil {
+		return nil
+	}
+	s := err.Error()
+	return &s
 }

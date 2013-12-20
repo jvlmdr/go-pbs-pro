@@ -22,10 +22,13 @@ type inputResp struct {
 }
 
 // Describes a client request to send output.
+// Use a string pointer for its ability to represent the nil error.
+// Cannot use error because it is an interface and
+// therefore not compatible with Marshal/Unmarshal.
 type outputReq struct {
 	Index int
 	Y     interface{}
-	Err   error
+	Err   *string
 }
 
 // Returns a generic request.

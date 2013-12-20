@@ -58,7 +58,7 @@ func master(task *qsubTask, name string, y, x, p interface{}) error {
 	for num < n && !exit {
 		select {
 		case err := <-errs:
-			if err != nil && first != nil {
+			if err != nil && first == nil {
 				first = err
 			}
 			n++
@@ -77,8 +77,8 @@ func master(task *qsubTask, name string, y, x, p interface{}) error {
 }
 
 // y is a slice of destinations.
-// p is a configuration object, possibly nil.
 // x is a slice of inputs.
+// p is a configuration object, possibly nil.
 func serve(l net.Listener, task Task, name string, y, x, p interface{}, todo <-chan int, dsts <-chan interface{}, errs chan<- error) {
 	for {
 		conn, err := l.Accept()
@@ -89,46 +89,58 @@ func serve(l net.Listener, task Task, name string, y, x, p interface{}, todo <-c
 		}
 
 		go func(conn net.Conn) {
-			defer conn.Close()
-			handle(conn, y, x, p, todo, dsts, errs)
+			err := handleClose(conn, y, x, p, todo, dsts)
+			errs <- err
 		}(conn)
 	}
 }
 
-func handle(conn io.ReadWriter, y, x, p interface{}, todo <-chan int, dsts <-chan interface{}, errs chan<- error) {
+// Ensures the connection is closed before sending result down the channel.
+// Catches any errors that occur in conn.Close().
+func handleClose(conn net.Conn, y, x, p interface{}, todo <-chan int, dsts <-chan interface{}) error {
+	handleErr := handle(conn, y, x, p, todo, dsts)
+	closeErr := conn.Close()
+	if handleErr != nil {
+		return handleErr
+	}
+	if closeErr != nil {
+		return closeErr
+	}
+	return nil
+}
+
+func handle(rw io.ReadWriter, y, x, p interface{}, todo <-chan int, dsts <-chan interface{}) error {
 	// Read request.
 	req := new(request)
-
-	dec := json.NewDecoder(conn)
-	if err := dec.Decode(req); err != nil {
-		log.Fatalln("decode request:", err)
+	if err := json.NewDecoder(rw).Decode(req); err != nil {
+		return fmt.Errorf("receive request: %v", err)
 	}
 
 	switch req.Type {
 	default:
-		err := fmt.Errorf(`unknown request type: "%s"`, req.Type)
-		panic(err)
+		// Error occurred in protocol, not user code.
+		return fmt.Errorf(`unknown request type: "%s"`, req.Type)
 
 	case recvType:
 		i := <-todo
 		xi := reflect.ValueOf(x).Index(i).Interface()
 		resp := &inputResp{i, xi, p}
-		if err := json.NewEncoder(conn).Encode(resp); err != nil {
-			log.Fatalln("send input:", err)
+		if err := json.NewEncoder(rw).Encode(resp); err != nil {
+			return fmt.Errorf("send input: %v", err)
 		}
+		return nil
 
 	case sendType:
 		body := &outputReq{Y: <-dsts}
 		if err := json.Unmarshal(req.Body, body); err != nil {
-			log.Fatalln("decode output request:", err)
+			return fmt.Errorf("receive output: %v", err)
 		}
 		// Send the error if one occurred, nil otherwise.
 		if body.Err != nil {
-			errs <- body.Err
-			return
+			return fmt.Errorf("slave error: %s", *body.Err)
 		}
 		// Assign value to output slice.
 		reflect.ValueOf(y).Index(body.Index).Set(reflect.ValueOf(body.Y).Elem())
-		errs <- nil
+		return nil
 	}
 }

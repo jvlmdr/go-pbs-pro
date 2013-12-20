@@ -8,11 +8,14 @@ import (
 // Reduce is implemented as log(n) maps from lists of pairs to single values.
 // Each map corresponds to one level of a binary tree.
 //
-// x is a slice of type []T.
-// name corresponds to a task which takes a pair of objects of type T
-// and returns one object of type T.
-// y is a reference to a single output value (e.g. pointer, interface).
-// p is an optional configuration parameter.
+// Parameters:
+// 	name identifies a reduce task.
+// 	y is a reference (e.g. pointer, interface) to a single output value.
+//	x is a slice of inputs.
+// 	p is an optional configuration parameter.
+//
+// The task takes a pair of objects and returns a single object.
+// Both inputs and the output are all the same type.
 func Reduce(name string, y, x, p interface{}) error {
 	out, err := reduce(name, x, p)
 	if err != nil {
@@ -155,8 +158,10 @@ func (t *reduceFuncTask) Func(x, p interface{}) (interface{}, error) {
 	if len(out) == 1 {
 		return y, nil
 	}
-	// Panics if second return value is not an error.
-	err := out[1].Interface().(error)
-	// Ignore any further return values.
-	return y, err
+	err := out[1].Interface()
+	if err == nil {
+		return y, nil
+	}
+	// Panics if second return value is not assignable to error.
+	return y, err.(error)
 }

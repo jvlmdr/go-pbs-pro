@@ -98,8 +98,10 @@ func (t *funcTask) Func(x, p interface{}) (interface{}, error) {
 	if len(out) == 1 {
 		return y, nil
 	}
-	// Panics if second return value is not an error.
-	err := out[1].Interface().(error)
-	// Ignore any further return values.
-	return y, err
+	err := out[1].Interface()
+	if err == nil {
+		return y, nil
+	}
+	// Panics if second return value is not assignable to error.
+	return y, err.(error)
 }
