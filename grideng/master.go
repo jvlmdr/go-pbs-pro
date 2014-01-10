@@ -7,7 +7,22 @@ import (
 	"log"
 	"net"
 	"reflect"
+	"time"
 )
+
+func listenRetry(netstr, laddr string) net.Listener {
+	for {
+		// Open port for server.
+		l, err := net.Listen(netstr, laddr)
+		if err == nil {
+			return l
+		}
+		log.Println(err)
+		// Pause.
+		time.Sleep(time.Second)
+		log.Println("listen: try again")
+	}
+}
 
 // Panics if x is not a slice.
 // y should be the same length as x.
@@ -15,10 +30,7 @@ func master(task *qsubTask, name string, y, x, p interface{}) error {
 	n := reflect.ValueOf(x).Len()
 
 	// Open port for server.
-	l, err := net.Listen("tcp", addrStr)
-	if err != nil {
-		return err
-	}
+	l := listenRetry("tcp", addrStr)
 	defer l.Close()
 
 	// Start server.
