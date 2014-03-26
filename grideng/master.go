@@ -26,7 +26,7 @@ func listenRetry(netstr, laddr string) net.Listener {
 
 // Panics if x is not a slice.
 // y should be the same length as x.
-func master(task *qsubTask, name string, y, x, p interface{}) error {
+func master(task *qsubTask, name string, y, x, p interface{}, stdout, stderr io.Writer) error {
 	n := reflect.ValueOf(x).Len()
 
 	// Open port for server.
@@ -57,7 +57,7 @@ func master(task *qsubTask, name string, y, x, p interface{}) error {
 	args = append(args, "-grideng.addr", addrStr)
 	proc := make(chan error)
 	go func() {
-		proc <- submit(n, *task.Res, args)
+		proc <- submit(n, *task.Res, args, stdout, stderr)
 	}()
 
 	// Wait for all tasks to finish.

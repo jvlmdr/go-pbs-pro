@@ -2,6 +2,7 @@ package grideng
 
 import (
 	"fmt"
+	"io"
 	"reflect"
 )
 
@@ -16,8 +17,8 @@ import (
 //
 // The task takes a pair of objects and returns a single object.
 // Both inputs and the output are all the same type.
-func Reduce(name string, y, x, p interface{}) error {
-	out, err := reduce(name, x, p)
+func ReduceWriteTo(name string, y, x, p interface{}, stdout, stderr io.Writer) error {
+	out, err := reduce(name, x, p, stdout, stderr)
 	if err != nil {
 		return err
 	}
@@ -25,22 +26,27 @@ func Reduce(name string, y, x, p interface{}) error {
 	return nil
 }
 
-func reduce(name string, x, p interface{}) (interface{}, error) {
+// Calls ReduceWriteTo with DefaultStdout and DefaultStderr.
+func Reduce(name string, y, x, p interface{}) error {
+	return ReduceWriteTo(name, y, x, p, DefaultStdout, DefaultStderr)
+}
+
+func reduce(name string, x, p interface{}, stdout, stderr io.Writer) (interface{}, error) {
 	// If there is only one element, return it.
 	// Panics if the input list was empty.
 	xval := reflect.ValueOf(x)
 	if xval.Len() < 2 {
 		return xval.Index(0).Interface(), nil
 	}
-	y, err := halve(name, x, p)
+	y, err := halve(name, x, p, stdout, stderr)
 	if err != nil {
 		return nil, err
 	}
-	return reduce(name, y, p)
+	return reduce(name, y, p, stdout, stderr)
 }
 
 // Maps n elements to ceil(n/2) elements.
-func halve(name string, x, p interface{}) (interface{}, error) {
+func halve(name string, x, p interface{}, stdout, stderr io.Writer) (interface{}, error) {
 	xval := reflect.ValueOf(x)
 	n := reflect.ValueOf(x).Len()
 	floor, ceil := n/2, (n+1)/2
@@ -56,7 +62,7 @@ func halve(name string, x, p interface{}) (interface{}, error) {
 	// If n is even, then n/2 == (n+1)/2.
 	// If n is odd, then this includes capacity for the last element.
 	y := make([]interface{}, len(pairs), ceil)
-	if err := Map(name, y, pairs, p); err != nil {
+	if err := MapWriteTo(name, y, pairs, p, stdout, stderr); err != nil {
 		return nil, err
 	}
 	// If there were an odd number of elements,

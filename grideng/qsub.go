@@ -3,12 +3,13 @@ package grideng
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"os/exec"
 )
 
-func submit(n int, res string, cmdArgs []string) error {
+func submit(n int, res string, cmdArgs []string, stdout, stderr io.Writer) error {
 	var args []string
 	// Submitting a binary job.
 	args = append(args, "-b", "y")
@@ -31,8 +32,9 @@ func submit(n int, res string, cmdArgs []string) error {
 
 	// Submit.
 	cmd := exec.Command("qsub", args...)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	// Do not pipe stdout to stdout.
+	cmd.Stdout = stdout
+	cmd.Stderr = stderr
 
 	var b bytes.Buffer
 	fmt.Fprint(&b, "qsub")
