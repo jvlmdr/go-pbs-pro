@@ -21,6 +21,9 @@ func submit(n int, res string, cmdArgs []string, stdout, stderr io.Writer) error
 	args = append(args, "-V")
 	// Use same environment variables.
 	args = append(args, "-t", fmt.Sprintf("1-%d", n))
+	//	// Discard stdout and stderr.
+	//	args = append(args, "-e", "/dev/null")
+	//	args = append(args, "-o", "/dev/null")
 	// Set resources.
 	if len(res) > 0 {
 		args = append(args, "-l", res)
