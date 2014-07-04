@@ -9,7 +9,7 @@ import (
 	"os/exec"
 )
 
-func submit(n int, res string, cmdArgs []string, stdout, stderr io.Writer) error {
+func submit(n int, res string, cmdArgs []string, cmdout, cmderr io.Writer, jobout, joberr string) error {
 	var args []string
 	// Submitting a binary job.
 	args = append(args, "-b", "y")
@@ -22,8 +22,12 @@ func submit(n int, res string, cmdArgs []string, stdout, stderr io.Writer) error
 	// Use same environment variables.
 	args = append(args, "-t", fmt.Sprintf("1-%d", n))
 	//	// Discard stdout and stderr.
-	//	args = append(args, "-e", "/dev/null")
-	//	args = append(args, "-o", "/dev/null")
+	if len(jobout) > 0 {
+		args = append(args, "-o", jobout)
+	}
+	if len(joberr) > 0 {
+		args = append(args, "-e", joberr)
+	}
 	// Set resources.
 	if len(res) > 0 {
 		args = append(args, "-l", res)
@@ -36,8 +40,8 @@ func submit(n int, res string, cmdArgs []string, stdout, stderr io.Writer) error
 	// Submit.
 	cmd := exec.Command("qsub", args...)
 	// Do not pipe stdout to stdout.
-	cmd.Stdout = stdout
-	cmd.Stderr = stderr
+	cmd.Stdout = cmdout
+	cmd.Stderr = cmderr
 
 	var b bytes.Buffer
 	fmt.Fprint(&b, "qsub")

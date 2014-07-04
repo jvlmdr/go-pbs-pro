@@ -57,7 +57,7 @@ func master(task *qsubTask, name string, y, x, p interface{}, cmdout, cmderr io.
 	args = append(args, "-grideng.addr", addrStr)
 	proc := make(chan error)
 	go func() {
-		proc <- submit(n, *task.Res, args, cmdout, cmderr)
+		proc <- submit(n, *task.Res, args, cmdout, cmderr, jobout, joberr)
 	}()
 
 	// Wait for all tasks to finish.
