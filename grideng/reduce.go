@@ -17,8 +17,8 @@ import (
 //
 // The task takes a pair of objects and returns a single object.
 // Both inputs and the output are all the same type.
-func ReduceWriteTo(name string, y, x, p interface{}, cmdout, cmderr io.Writer, jobout, joberr string) error {
-	out, err := reduce(name, x, p, cmdout, cmderr, jobout, joberr)
+func ReduceWriteTo(name string, y, x, p interface{}, cmdout, cmderr io.Writer) error {
+	out, err := reduce(name, x, p, cmdout, cmderr)
 	if err != nil {
 		return err
 	}
@@ -28,25 +28,25 @@ func ReduceWriteTo(name string, y, x, p interface{}, cmdout, cmderr io.Writer, j
 
 // Calls ReduceWriteTo with defaults.
 func Reduce(name string, y, x, p interface{}) error {
-	return ReduceWriteTo(name, y, x, p, DefaultCmdOut, DefaultCmdErr, DefaultJobOut, DefaultJobErr)
+	return ReduceWriteTo(name, y, x, p, DefaultCmdOut, DefaultCmdErr)
 }
 
-func reduce(name string, x, p interface{}, cmdout, cmderr io.Writer, jobout, joberr string) (interface{}, error) {
+func reduce(name string, x, p interface{}, cmdout, cmderr io.Writer) (interface{}, error) {
 	// If there is only one element, return it.
 	// Panics if the input list was empty.
 	xval := reflect.ValueOf(x)
 	if xval.Len() < 2 {
 		return xval.Index(0).Interface(), nil
 	}
-	y, err := halve(name, x, p, cmdout, cmderr, jobout, joberr)
+	y, err := halve(name, x, p, cmdout, cmderr)
 	if err != nil {
 		return nil, err
 	}
-	return reduce(name, y, p, cmdout, cmderr, jobout, joberr)
+	return reduce(name, y, p, cmdout, cmderr)
 }
 
 // Maps n elements to ceil(n/2) elements.
-func halve(name string, x, p interface{}, cmdout, cmderr io.Writer, jobout, joberr string) (interface{}, error) {
+func halve(name string, x, p interface{}, cmdout, cmderr io.Writer) (interface{}, error) {
 	xval := reflect.ValueOf(x)
 	n := reflect.ValueOf(x).Len()
 	floor, ceil := n/2, (n+1)/2
@@ -62,7 +62,7 @@ func halve(name string, x, p interface{}, cmdout, cmderr io.Writer, jobout, jobe
 	// If n is even, then n/2 == (n+1)/2.
 	// If n is odd, then this includes capacity for the last element.
 	y := make([]interface{}, len(pairs), ceil)
-	if err := MapWriteTo(name, y, pairs, p, cmdout, cmderr, jobout, joberr); err != nil {
+	if err := MapWriteTo(name, y, pairs, p, cmdout, cmderr); err != nil {
 		return nil, err
 	}
 	// If there were an odd number of elements,

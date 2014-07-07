@@ -15,6 +15,7 @@ type Task interface {
 	// Returns an input object which can be decoded into.
 	//	x := task.NewInput()
 	//	json.NewDecoder(r).Decode(x)
+	// This will be de-referenced before passing to Func().
 	NewInput() interface{}
 	// Returns a config object which can be decoded into,
 	// or nil if there are no config parameters.
@@ -86,7 +87,7 @@ func (t *funcTask) NewOutput() interface{} {
 // If function only takes one argument then p is ignored.
 func (t *funcTask) Func(x, p interface{}) (interface{}, error) {
 	f := reflect.ValueOf(t.F)
-	in := []reflect.Value{reflect.ValueOf(x).Elem()}
+	in := []reflect.Value{reflect.ValueOf(x)}
 	// Only use second argument if function accepts one.
 	if f.Type().NumIn() > 1 {
 		in = append(in, reflect.ValueOf(p).Elem())

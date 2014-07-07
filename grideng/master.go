@@ -26,7 +26,7 @@ func listenRetry(netstr, laddr string) net.Listener {
 
 // Panics if x is not a slice.
 // y should be the same length as x.
-func master(task *qsubTask, name string, y, x, p interface{}, cmdout, cmderr io.Writer, jobout, joberr string) error {
+func master(task Task, name string, y, x, p interface{}, res string, cmdout, cmderr io.Writer, jobout, joberr string) error {
 	n := reflect.ValueOf(x).Len()
 
 	// Open port for server.
@@ -45,11 +45,11 @@ func master(task *qsubTask, name string, y, x, p interface{}, cmdout, cmderr io.
 	go func(n int) {
 		// Thread-safely call Task.NewOutput().
 		for i := 0; i < n; i++ {
-			dsts <- task.Task.NewOutput()
+			dsts <- task.NewOutput()
 		}
 	}(n)
 	errs := make(chan error)
-	go serve(l, task.Task, name, y, x, p, todo, dsts, errs)
+	go serve(l, task, name, y, x, p, todo, dsts, errs)
 
 	// Submit job.
 	var args []string
@@ -57,7 +57,7 @@ func master(task *qsubTask, name string, y, x, p interface{}, cmdout, cmderr io.
 	args = append(args, "-grideng.addr", addrStr)
 	proc := make(chan error)
 	go func() {
-		proc <- submit(n, *task.Res, args, cmdout, cmderr, jobout, joberr)
+		proc <- submit(n, res, args, cmdout, cmderr, jobout, joberr)
 	}()
 
 	// Wait for all tasks to finish.

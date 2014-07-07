@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"reflect"
 )
 
 // If the process is a slave, this function never returns.
@@ -26,13 +27,14 @@ func ExecIfSlave() {
 
 func slave(task Task) {
 	// Request input from the master.
-	x := task.NewInput()
+	xptr := task.NewInput()
 	p := task.NewConfig()
-	index, err := receiveInput(addrStr, x, p)
+	index, err := receiveInput(addrStr, xptr, p)
 	if err != nil {
 		panic(err)
 	}
 
+	x := reflect.ValueOf(xptr).Elem().Interface()
 	y, taskerr := task.Func(x, p)
 	if err := sendOutput(addrStr, index, y, taskerr); err != nil {
 		panic(err)
