@@ -1,4 +1,4 @@
-package grideng
+package dstrfn
 
 import (
 	"fmt"
@@ -39,10 +39,10 @@ type Task interface {
 // for use with reflect.New().
 //
 // Examples:
-//	sqr := grideng.Func(func(x float64) float64 { return x * x })
-//	sqrt := grideng.Func(math.Sqrt)
-//	pow := grideng.Func(math.Pow)
-//	linop := grideng.Func(func(x *Vec, a *Mat) float64 { a.Mul(x) })
+//	sqr := dstrfn.Func(func(x float64) float64 { return x * x })
+//	sqrt := dstrfn.Func(math.Sqrt)
+//	pow := dstrfn.Func(math.Pow)
+//	linop := dstrfn.Func(func(x *Vec, a *Mat) float64 { a.Mul(x) })
 func Func(f interface{}) Task {
 	fval := reflect.ValueOf(f)
 	if fval.Kind() != reflect.Func {

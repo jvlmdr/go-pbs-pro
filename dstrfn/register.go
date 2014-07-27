@@ -1,4 +1,4 @@
-package grideng
+package dstrfn
 
 import (
 	"flag"
@@ -13,8 +13,8 @@ var (
 
 func init() {
 	tasks = make(map[string]*qsubTask)
-	flag.StringVar(&addrStr, "grideng.addr", "", "Address of master on network.")
-	flag.StringVar(&slaveTask, "grideng.task", "", "Task to execute as slave. Empty to execute as master.")
+	flag.StringVar(&addrStr, "dstrfn.addr", "", "Address of master on network.")
+	flag.StringVar(&slaveTask, "dstrfn.task", "", "Task to execute as slave. Empty to execute as master.")
 }
 
 type qsubTask struct {

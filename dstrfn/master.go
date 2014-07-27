@@ -1,4 +1,4 @@
-package grideng
+package dstrfn
 
 import (
 	"encoding/json"
@@ -53,8 +53,8 @@ func master(task Task, name string, y, x, p interface{}, res string, cmdout, cmd
 
 	// Submit job.
 	var args []string
-	args = append(args, "-grideng.task", name)
-	args = append(args, "-grideng.addr", addrStr)
+	args = append(args, "-dstrfn.task", name)
+	args = append(args, "-dstrfn.addr", addrStr)
 	proc := make(chan error)
 	go func() {
 		proc <- submit(n, res, args, cmdout, cmderr, jobout, joberr)

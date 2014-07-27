@@ -1,4 +1,4 @@
-package grideng
+package dstrfn
 
 import (
 	"fmt"
@@ -88,9 +88,9 @@ type pair struct {
 // The second return value must be assignable to error.
 //
 // Examples:
-//	sum := grideng.ReduceFunc(func(x, y float64) float64 { return x + y })
-//	norm := grideng.ReduceFunc(func(x, y float64) float64 { return math.Sqrt(x*x + y*y) }
-//	pnorm := grideng.ReduceFunc(func(x, y, p float64) float64 {
+//	sum := dstrfn.ReduceFunc(func(x, y float64) float64 { return x + y })
+//	norm := dstrfn.ReduceFunc(func(x, y float64) float64 { return math.Sqrt(x*x + y*y) }
+//	pnorm := dstrfn.ReduceFunc(func(x, y, p float64) float64 {
 // 		return math.Pow(math.Pow(x, p)+math.Pow(y, p), 1/p)
 // 	})
 //

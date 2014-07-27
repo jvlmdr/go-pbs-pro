@@ -1,4 +1,4 @@
-package grideng
+package dstrfn
 
 func ceilDiv(p, q int) int {
 	switch {
