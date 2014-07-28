@@ -37,14 +37,18 @@ func slave(task Task) {
 
 	// Request input from the master.
 	xptr := task.NewInput()
-	p := task.NewConfig()
+	pptr := task.NewConfig()
 	log.Println("receive input")
-	index, err := receiveInput(addrStr, xptr, p)
+	index, err := receiveInput(addrStr, xptr, pptr)
 	if err != nil {
 		panic(err)
 	}
 
 	x := reflect.ValueOf(xptr).Elem().Interface()
+	var p interface{}
+	if pptr != nil {
+		p = reflect.ValueOf(pptr).Elem().Interface()
+	}
 	log.Println("call function")
 	y, taskerr := task.Func(x, p)
 

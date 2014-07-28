@@ -19,24 +19,28 @@ func main() {
 	flag.IntVar(&m, "m", 8, "Number of vectors")
 	flag.IntVar(&d, "d", 8, "Number of dimensions for vector")
 
-	dstrfn.Register("square", dstrfn.Func(
+	// Map operation with no extra arguments.
+	dstrfn.Register("square", true, dstrfn.Func(
 		func(x float64) float64 { return x * x },
 	))
-	dstrfn.Register("add-const", dstrfn.Func(
+	// Map operation with one extra argument.
+	dstrfn.Register("add-const", true, dstrfn.Func(
 		func(x, y float64) float64 { return x + y },
 	))
-	dstrfn.Register("add", dstrfn.ReduceFunc(
+	// Reduce operation with no extra arguments.
+	dstrfn.Register("add", false, dstrfn.ReduceFunc(
 		func(x, y float64) float64 { return x + y },
 	))
-	dstrfn.Register("norm", dstrfn.ReduceFunc(
+	// Reduce operation with one extra argument.
+	dstrfn.Register("norm", false, dstrfn.ReduceFunc(
 		func(x, y, p float64) float64 {
 			return math.Pow(math.Pow(x, p)+math.Pow(y, p), 1/p)
 		},
 	))
 
-	dstrfn.Register("vec-2-norm", dstrfn.Func(Norm))
-	dstrfn.Register("vec-p-norm", dstrfn.Func(NormP))
-	dstrfn.Register("vec-add", dstrfn.ReduceFunc(AddVec))
+	dstrfn.Register("vec-2-norm", true, dstrfn.Func(Norm))
+	dstrfn.Register("vec-p-norm", true, dstrfn.Func(NormP))
+	dstrfn.Register("vec-add", false, dstrfn.ReduceFunc(AddVec))
 
 	flag.Parse()
 	dstrfn.ExecIfSlave()

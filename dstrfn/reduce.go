@@ -156,7 +156,7 @@ func (t *reduceFuncTask) Func(x, p interface{}) (interface{}, error) {
 	}
 	// Only use third argument if function accepts one.
 	if f.Type().NumIn() > 2 {
-		in = append(in, reflect.ValueOf(p).Elem())
+		in = append(in, reflect.ValueOf(p))
 	}
 	// Panics if call is invalid.
 	out := f.Call(in)
