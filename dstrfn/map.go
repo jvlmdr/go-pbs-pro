@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"reflect"
+	//"reflect"
 )
 
 var DefaultCmdOut io.Writer = os.Stdout
@@ -23,14 +23,14 @@ func MapWriteTo(name string, y, x, p interface{}, cmdout, cmderr io.Writer) erro
 		return fmt.Errorf(`task not found: "%s"`, name)
 	}
 
-	m := max(task.ChunkLen, 1)
-	u := split(x, 1, m)
-	v := split(y, 1, m)
-	err := master(task.Task, name, v, u, p, task.Res, cmdout, cmderr, task.Stdout, task.Stderr)
+	//	m := max(task.ChunkLen, 1)
+	//	u := split(x, 1, m)
+	//	v := split(y, 1, m)
+	err := master(task.Task, name, y, x, p, task.Flags, cmdout, cmderr, task.Stdout, task.Stderr)
 	if err != nil {
 		return err
 	}
-	reflect.Copy(reflect.ValueOf(y), reflect.ValueOf(merge(v)))
+	//	reflect.Copy(reflect.ValueOf(y), reflect.ValueOf(merge(v)))
 	return nil
 }
 

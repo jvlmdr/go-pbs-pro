@@ -6,7 +6,7 @@ import (
 	"math"
 	"os"
 
-	"github.com/jvlmdr/go-drmaa-util/dstrfn"
+	"github.com/jvlmdr/go-pbs-pro/dstrfn"
 )
 
 func main() {
@@ -55,6 +55,7 @@ func main() {
 	y := make([]float64, n)
 	if err := dstrfn.Map("square", y, x, nil); err != nil {
 		fmt.Fprintln(os.Stderr, "map:", err)
+		os.Exit(1)
 	}
 	fmt.Println(y)
 
@@ -62,6 +63,7 @@ func main() {
 	z := make([]float64, n)
 	if err := dstrfn.Map("add-const", z, x, -(n + 1)); err != nil {
 		fmt.Fprintln(os.Stderr, "map:", err)
+		os.Exit(1)
 	}
 	fmt.Println(z)
 
@@ -69,6 +71,7 @@ func main() {
 	var sum float64
 	if err := dstrfn.Reduce("add", &sum, x, nil); err != nil {
 		fmt.Fprintln(os.Stderr, "reduce:", err)
+		os.Exit(1)
 	}
 	fmt.Println("sum:", sum)
 
@@ -77,6 +80,7 @@ func main() {
 	var norm float64
 	if err := dstrfn.Reduce("norm", &norm, x, 1.5); err != nil {
 		fmt.Fprintln(os.Stderr, "reduce:", err)
+		os.Exit(1)
 	}
 	fmt.Println("1.5-norm:", norm)
 
@@ -84,6 +88,7 @@ func main() {
 	norms2 := make([]float64, m)
 	if err := dstrfn.Map("vec-2-norm", norms2, vecs, nil); err != nil {
 		fmt.Fprintln(os.Stderr, "map:", err)
+		os.Exit(1)
 	}
 	fmt.Println("norms2:", norms2)
 
@@ -91,6 +96,7 @@ func main() {
 	norms1 := make([]float64, m)
 	if err := dstrfn.Map("vec-p-norm", norms1, vecs, 1); err != nil {
 		fmt.Fprintln(os.Stderr, "map:", err)
+		os.Exit(1)
 	}
 	fmt.Println("norms1:", norms1)
 
@@ -98,6 +104,7 @@ func main() {
 	var vecsum *Vec
 	if err := dstrfn.Reduce("vec-add", &vecsum, vecs, nil); err != nil {
 		fmt.Fprintln(os.Stderr, "map:", err)
+		os.Exit(1)
 	}
 	fmt.Println("vecsum:", vecsum)
 }

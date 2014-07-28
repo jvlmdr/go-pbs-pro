@@ -19,12 +19,12 @@ func init() {
 
 type qsubTask struct {
 	Task Task
-	// Resources string (-l) for qsub.
-	Res string
+	// Additional flags for the job.
+	Flags string
 	// Group jobs into chunks.
 	ChunkLen int
-	// Where to route stdout and stderr of tasks.
-	Stdout, Stderr string
+	// Keep stdout and stderr of tasks?
+	Stdout, Stderr bool
 }
 
 // Registers a task to a name.
@@ -36,10 +36,11 @@ func Register(name string, task Task) {
 	}
 
 	q := new(qsubTask)
-	q.Task = &chunkTask{task}
-	flag.StringVar(&q.Res, name+".l", "", "Resource flag (-l) to qsub")
-	flag.IntVar(&q.ChunkLen, name+".chunk-len", 1, "Split into chunks of up to this many elements")
-	flag.StringVar(&q.Stdout, name+".stdout", "/dev/null", "Where to save stdout of task")
-	flag.StringVar(&q.Stderr, name+".stderr", "/dev/null", "Where to save stderr of task")
+	//q.Task = &chunkTask{task}
+	q.Task = task
+	flag.StringVar(&q.Flags, name+".flags", "", "Additional flags")
+	//flag.IntVar(&q.ChunkLen, name+".chunk-len", 1, "Split into chunks of up to this many elements")
+	flag.BoolVar(&q.Stdout, name+".stdout", false, "Keep stdout?")
+	flag.BoolVar(&q.Stderr, name+".stderr", false, "Keep stderr?")
 	tasks[name] = q
 }

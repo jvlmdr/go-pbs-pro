@@ -46,29 +46,30 @@ func reduce(name string, x, p interface{}, cmdout, cmderr io.Writer) (interface{
 }
 
 // Maps n elements to ceil(n/2) elements.
+// Know that type of output matches that of input.
 func halve(name string, x, p interface{}, cmdout, cmderr io.Writer) (interface{}, error) {
 	xval := reflect.ValueOf(x)
 	n := reflect.ValueOf(x).Len()
 	floor, ceil := n/2, (n+1)/2
 
-	pairs := make([]*pair, floor)
+	pairs := make([]pair, floor)
 	for i := range pairs {
 		a := xval.Index(2 * i).Interface()
 		b := xval.Index(2*i + 1).Interface()
-		pairs[i] = &pair{a, b}
+		pairs[i] = pair{a, b}
 	}
 
 	// Make a slice to assign the results to.
 	// If n is even, then n/2 == (n+1)/2.
 	// If n is odd, then this includes capacity for the last element.
-	y := make([]interface{}, len(pairs), ceil)
+	y := reflect.MakeSlice(reflect.TypeOf(x), floor, ceil).Interface()
 	if err := MapWriteTo(name, y, pairs, p, cmdout, cmderr); err != nil {
 		return nil, err
 	}
 	// If there were an odd number of elements,
 	// then bring the last one forward.
 	if n%2 != 0 {
-		y = append(y, xval.Index(n-1).Interface())
+		y = reflect.Append(reflect.ValueOf(y), xval.Index(n-1)).Interface()
 	}
 	return y, nil
 }
@@ -147,8 +148,8 @@ func (t *reduceFuncTask) NewOutput() interface{} {
 // If function only takes one argument then p is ignored.
 func (t *reduceFuncTask) Func(x, p interface{}) (interface{}, error) {
 	f := reflect.ValueOf(t.F)
-	// Get two elements from x. Panics if x is not a *pair.
-	ab := x.(*pair)
+	// Get two elements from x. Panics if x is not a pair.
+	ab := x.(pair)
 	in := []reflect.Value{
 		reflect.ValueOf(ab.A).Elem(),
 		reflect.ValueOf(ab.B).Elem(),

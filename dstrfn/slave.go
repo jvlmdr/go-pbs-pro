@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"net"
 	"os"
 	"reflect"
@@ -26,16 +27,28 @@ func ExecIfSlave() {
 }
 
 func slave(task Task) {
+	dir := os.Getenv("PBS_O_WORKDIR")
+	if len(dir) == 0 {
+		panic("environment variable empty: PBS_O_WORKDIR")
+	}
+	if err := os.Chdir(dir); err != nil {
+		panic(fmt.Sprintf("chdir: %v", err))
+	}
+
 	// Request input from the master.
 	xptr := task.NewInput()
 	p := task.NewConfig()
+	log.Println("receive input")
 	index, err := receiveInput(addrStr, xptr, p)
 	if err != nil {
 		panic(err)
 	}
 
 	x := reflect.ValueOf(xptr).Elem().Interface()
+	log.Println("call function")
 	y, taskerr := task.Func(x, p)
+
+	log.Println("send output")
 	if err := sendOutput(addrStr, index, y, taskerr); err != nil {
 		panic(err)
 	}

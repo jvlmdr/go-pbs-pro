@@ -26,7 +26,7 @@ func listenRetry(netstr, laddr string) net.Listener {
 
 // Panics if x is not a slice.
 // y should be the same length as x.
-func master(task Task, name string, y, x, p interface{}, res string, cmdout, cmderr io.Writer, jobout, joberr string) error {
+func master(task Task, name string, y, x, p interface{}, flags string, cmdout, cmderr io.Writer, jobout, joberr bool) error {
 	n := reflect.ValueOf(x).Len()
 
 	// Open port for server.
@@ -57,7 +57,7 @@ func master(task Task, name string, y, x, p interface{}, res string, cmdout, cmd
 	args = append(args, "-dstrfn.addr", addrStr)
 	proc := make(chan error)
 	go func() {
-		proc <- submit(n, res, args, cmdout, cmderr, jobout, joberr)
+		proc <- submit(n, flags, args, name, cmdout, cmderr, jobout, joberr)
 	}()
 
 	// Wait for all tasks to finish.
@@ -75,7 +75,6 @@ func master(task Task, name string, y, x, p interface{}, res string, cmdout, cmd
 			}
 			n++
 		case err := <-proc:
-			log.Println("qsub exit")
 			if err != nil {
 				return err
 			}
