@@ -18,8 +18,9 @@ var (
 // The function is specified by name and must already be registered.
 // The input x must be a slice or similar (see reflect.Value.Index()).
 // The output y must be a pointer to a slice.
-// It does not need to have capacity for the output, but it will be used if it does.
-// The length of y will match x.
+// If the length of y is sufficient to hold the output, it will be over-written.
+// If it is not sufficient, a new array will be allocated.
+// After a succesful call, the length of y will match that of x.
 func Map(f string, y, x, p interface{}) error {
 	return MapWriteTo(f, y, x, p, DefaultCmdOut, DefaultCmdErr)
 }
@@ -61,7 +62,7 @@ func MapWriteTo(f string, y, x, p interface{}, cmdout, cmderr io.Writer) error {
 func ensureLenAndDeref(dst interface{}, n int) interface{} {
 	// De-reference pointer.
 	val := reflect.ValueOf(dst).Elem()
-	if val.Cap() >= n {
+	if val.Len() >= n {
 		return val.Slice(0, n).Interface()
 	}
 	// Not big enough, re-allocate.
