@@ -11,6 +11,7 @@ import (
 )
 
 func listenRetry(netstr, laddr string) net.Listener {
+	// TODO: This infinite loop is a hack.
 	for {
 		// Open port for server.
 		l, err := net.Listen(netstr, laddr)
@@ -24,8 +25,8 @@ func listenRetry(netstr, laddr string) net.Listener {
 	}
 }
 
-// Panics if x is not a slice.
-// y should be the same length as x.
+// The input x should be a slice.
+// The output y should be a slice with the exactly same number of elements.
 func master(task Task, name string, y, x, p interface{}, flags string, cmdout, cmderr io.Writer, jobout, joberr bool) error {
 	n := reflect.ValueOf(x).Len()
 
@@ -43,7 +44,7 @@ func master(task Task, name string, y, x, p interface{}, flags string, cmdout, c
 	}(n)
 	dsts := make(chan interface{})
 	go func(n int) {
-		// Thread-safely call Task.NewOutput().
+		// Thread-safely call NewOutput().
 		for i := 0; i < n; i++ {
 			dsts <- task.NewOutput()
 		}
@@ -52,9 +53,7 @@ func master(task Task, name string, y, x, p interface{}, flags string, cmdout, c
 	go serve(l, task, name, y, x, p, todo, dsts, errs)
 
 	// Submit job.
-	var args []string
-	args = append(args, "-dstrfn.task", name)
-	args = append(args, "-dstrfn.addr", addrStr)
+	args := []string{"-dstrfn.task", name, "-dstrfn.addr", addrStr}
 	proc := make(chan error)
 	go func() {
 		proc <- submit(n, flags, args, name, cmdout, cmderr, jobout, joberr)
@@ -87,14 +86,15 @@ func master(task Task, name string, y, x, p interface{}, flags string, cmdout, c
 	return nil
 }
 
-// y is a slice of destinations.
-// x is a slice of inputs.
-// p is a configuration object, possibly nil.
+// The output x must be a slice.
+// The output y must be a slice of the same length.
+// The extra parameters p may be nil.
 func serve(l net.Listener, task Task, name string, y, x, p interface{}, todo <-chan int, dsts <-chan interface{}, errs chan<- error) {
 	for {
 		conn, err := l.Accept()
 		// The listener will be closed when qsub exits.
 		if err != nil {
+			// TODO: Prevent this from printing an error when expected.
 			log.Println("accept:", err)
 			break
 		}
@@ -120,6 +120,7 @@ func handleClose(conn net.Conn, y, x, p interface{}, todo <-chan int, dsts <-cha
 	return nil
 }
 
+// Sends one input or receives one output.
 func handle(rw io.ReadWriter, y, x, p interface{}, todo <-chan int, dsts <-chan interface{}) error {
 	// Read request.
 	req := new(request)

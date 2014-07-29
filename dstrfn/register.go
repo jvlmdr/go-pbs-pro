@@ -45,7 +45,7 @@ func Register(name string, chunk bool, task Task) {
 	if chunk {
 		st.Task = &chunkTask{task}
 		st.Chunk = true
-		flag.IntVar(&st.ChunkLen, name+".chunk-len", 1, "Split into chunks of up to this many elements")
+		flag.IntVar(&st.ChunkLen, name+".chunk-len", 1, "Split into chunks of up to this many elements.")
 	} else {
 		st.Task = task
 	}

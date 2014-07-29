@@ -56,16 +56,16 @@ func main() {
 	}
 
 	// Square all numbers.
-	y := make([]float64, n)
-	if err := dstrfn.Map("square", y, x, nil); err != nil {
+	var y []float64
+	if err := dstrfn.Map("square", &y, x, nil); err != nil {
 		fmt.Fprintln(os.Stderr, "map:", err)
 		os.Exit(1)
 	}
 	fmt.Println(y)
 
 	// Subtract a constant from all numbers.
-	z := make([]float64, n)
-	if err := dstrfn.Map("add-const", z, x, -(n + 1)); err != nil {
+	var z []float64
+	if err := dstrfn.Map("add-const", &z, x, -(n + 1)); err != nil {
 		fmt.Fprintln(os.Stderr, "map:", err)
 		os.Exit(1)
 	}
@@ -89,16 +89,16 @@ func main() {
 	fmt.Println("1.5-norm:", norm)
 
 	// Compute 2-norm of each vector.
-	norms2 := make([]float64, m)
-	if err := dstrfn.Map("vec-2-norm", norms2, vecs, nil); err != nil {
+	var norms2 []float64
+	if err := dstrfn.Map("vec-2-norm", &norms2, vecs, nil); err != nil {
 		fmt.Fprintln(os.Stderr, "map:", err)
 		os.Exit(1)
 	}
 	fmt.Println("norms2:", norms2)
 
 	// Compute 1-norm of each vector.
-	norms1 := make([]float64, m)
-	if err := dstrfn.Map("vec-p-norm", norms1, vecs, 1); err != nil {
+	var norms1 []float64
+	if err := dstrfn.Map("vec-p-norm", &norms1, vecs, 1); err != nil {
 		fmt.Fprintln(os.Stderr, "map:", err)
 		os.Exit(1)
 	}
