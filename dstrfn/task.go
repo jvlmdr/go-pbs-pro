@@ -7,7 +7,7 @@ package dstrfn
 // NewInput(), NewConfig() and Func() are called by the slave,
 // NewOutput() is called by the master.
 //
-// NewX() must return a value suitable for decoding into.
+// NewXxx() must return a value suitable for decoding into.
 type Task interface {
 	// Returns an input object which can be decoded into.
 	//	x := task.NewInput()
