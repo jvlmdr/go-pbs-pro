@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"reflect"
+	"strings"
 )
 
 // Default place to route stdout and stderr of qsub when invoked.
@@ -46,7 +47,8 @@ func MapWriteTo(f string, y, x, p interface{}, cmdout, cmderr io.Writer) error {
 		v = y
 	}
 
-	err := master(task.Task, f, v, u, p, task.Flags, cmdout, cmderr, task.Stdout, task.Stderr)
+	userargs := strings.Split(task.Flags, " ")
+	err := master(task.Task, f, v, u, p, userargs, cmdout, cmderr, task.Stdout, task.Stderr)
 	if err != nil {
 		return err
 	}

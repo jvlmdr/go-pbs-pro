@@ -10,7 +10,7 @@ import (
 	"path"
 )
 
-func submit(n int, flags string, jobargs []string, name string, subout, suberr io.Writer, jobout, joberr bool) error {
+func submit(n int, userargs, jobargs []string, name string, subout, suberr io.Writer, jobout, joberr bool) error {
 	var args []string
 	// Set task name.
 	args = append(args, "-N", name)
@@ -34,8 +34,8 @@ func submit(n int, flags string, jobargs []string, name string, subout, suberr i
 		args = append(args, "-k", "oe")
 	}
 	// Set resources.
-	if len(flags) > 0 {
-		args = append(args, flags)
+	if len(userargs) > 0 {
+		args = append(args, userargs...)
 	}
 
 	// Name of executable to run.
