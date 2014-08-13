@@ -1,21 +1,22 @@
 package dstrfn
 
 import (
-	"bytes"
 	"fmt"
 	"io"
 	"log"
 	"os"
 	"os/exec"
 	"path"
+	"strings"
 )
 
-func submit(n int, userargs, jobargs []string, name string, subout, suberr io.Writer, jobout, joberr bool) error {
+func submit(isMap bool, n int, jobargs []string, name, userargs string, subout, suberr io.Writer, jobout, joberr bool) error {
 	var args []string
 	// Set task name.
 	args = append(args, "-N", name)
 	// Set number of jobs.
-	if n > 1 {
+	if isMap {
+		// TODO: Handle map of 1 task.
 		args = append(args, "-J", fmt.Sprintf("1-%d", n))
 	}
 	// Wait for all jobs to finish.
@@ -23,41 +24,41 @@ func submit(n int, userargs, jobargs []string, name string, subout, suberr io.Wr
 	// Use same environment variables.
 	args = append(args, "-V")
 	// Where to send stdout and stderr.
-	switch {
-	case jobout && joberr:
-		args = append(args, "-k", "n")
-	case jobout:
-		args = append(args, "-k", "e")
-	case joberr:
-		args = append(args, "-k", "o")
-	default:
-		args = append(args, "-k", "oe")
-	}
+	args = append(args, "-k", keepStr(jobout, joberr))
 	// Set resources.
 	if len(userargs) > 0 {
-		args = append(args, userargs...)
+		args = append(args, strings.Split(userargs, " ")...)
 	}
 
-	// Name of executable to run.
-	wd, err := os.Getwd()
-	if err != nil {
-		return err
+	// Full path of executable to run.
+	self := os.Args[0]
+	if !path.IsAbs(self) {
+		wd, err := os.Getwd()
+		if err != nil {
+			return err
+		}
+		self = path.Join(wd, os.Args[0])
 	}
-	args = append(args, "--", path.Join(wd, os.Args[0]))
+	args = append(args, "--", self)
 	args = append(args, jobargs...)
 
-	// Submit.
 	cmd := exec.Command("qsub", args...)
-	// Do not pipe stdout to stdout.
+	// Re-route stdout and stderr.
 	cmd.Stdout = subout
 	cmd.Stderr = suberr
-
-	var b bytes.Buffer
-	fmt.Fprint(&b, "qsub")
-	for _, arg := range args {
-		fmt.Fprint(&b, " ", arg)
-	}
-	log.Println("invoke:", b.String())
-
+	log.Printf("qsub arguments: %#v", args)
 	return cmd.Run()
+}
+
+func keepStr(out, err bool) string {
+	switch {
+	case out && err:
+		return "n"
+	case out:
+		return "e"
+	case err:
+		return "o"
+	default:
+		return "oe"
+	}
 }

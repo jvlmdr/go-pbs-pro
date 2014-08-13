@@ -66,3 +66,15 @@ func TestMerge_AfterSplit(t *testing.T) {
 		}
 	}
 }
+
+func TestMergeTo_AfterSplit(t *testing.T) {
+	for _, x := range splitTests {
+		y := split(x.In, x.MinNum, x.MaxSize)
+		val := reflect.ValueOf(x.In)
+		got := reflect.MakeSlice(val.Type(), val.Len(), val.Len()).Interface()
+		mergeTo(got, y)
+		if !reflect.DeepEqual(x.In, got) {
+			t.Errorf("%+v: got %v", x, got)
+		}
+	}
+}

@@ -1,10 +1,13 @@
 package dstrfn
 
-import "reflect"
+import (
+	"log"
+	"reflect"
+)
 
 // A meta-task which performs another task on multiple elements.
 type chunkTask struct {
-	Task Task
+	Task ConfigTask
 }
 
 // Creates a new input element, discards it,
@@ -23,9 +26,12 @@ func (t *chunkTask) NewConfig() interface{} {
 
 // Returns a new object of the type of the first return value.
 func (t *chunkTask) NewOutput() interface{} {
-	e := t.Task.NewOutput()
-	etyp := reflect.TypeOf(e).Elem()
-	return reflect.New(reflect.SliceOf(etyp)).Interface()
+	ptr := reflect.ValueOf(t.Task.NewOutput())
+	if ptr.Type().Kind() != reflect.Ptr {
+		log.Println("not a pointer:", ptr.Type())
+	}
+	xtyp := ptr.Type().Elem()
+	return reflect.New(reflect.SliceOf(xtyp)).Interface()
 }
 
 // If function only takes one argument then p is ignored.

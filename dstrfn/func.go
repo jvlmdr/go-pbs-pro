@@ -5,81 +5,105 @@ import (
 	"reflect"
 )
 
-// Defines a map task from a function.
-//
-// The function f must take either one or two arguments and
-// have either one or two return values.
-// The second return value must be assignable to error.
-// The arguments and first return value must be concrete types
-// suitable for decoding into.
-//
-// Examples:
-//	var (
-//		sqr   = dstrfn.Func(func(x float64) float64 { return x * x })
-//		sqrt  = dstrfn.Func(math.Sqrt)
-//		pow   = dstrfn.Func(math.Pow)
-//		linop = dstrfn.Func(func(x *Vec, a *Mat) float64 { a.Mul(x) })
-//	)
+// Func creates a task from a function.
+// The function can have up to two outputs.
+// The last output to have type error will be treated as an error.
+// All inputs and all other outputs must have concrete types
+// suitable for use with reflect.New().
 func Func(f interface{}) Task {
-	fval := reflect.ValueOf(f)
-	if fval.Kind() != reflect.Func {
-		panic(fmt.Sprintf("not func: %v", fval.Kind()))
+	ftyp := reflect.TypeOf(f)
+	if ftyp.Kind() != reflect.Func {
+		panic(fmt.Sprintf("not func: %v", ftyp.Kind()))
 	}
-	if n := fval.Type().NumIn(); n < 1 || n > 2 {
-		panic(fmt.Sprintf("number of arguments: %d", n))
-	}
-	if n := fval.Type().NumOut(); n < 1 || n > 2 {
-		panic(fmt.Sprintf("number of return values: %d", n))
+	n := ftyp.NumOut()
+	if n > 0 {
+		// Remove last type if it is error.
+		if isError(ftyp.Out(n - 1)) {
+			n--
+		}
+		if n > 1 {
+			panic(fmt.Sprintf("more than one non-error output: %d", n))
+		}
 	}
 	return &funcTask{f}
 }
 
-// Task defined by a function.
 type funcTask struct {
 	F interface{}
 }
 
-// Returns a new object of the type of the first argument.
 func (t *funcTask) NewInput() interface{} {
-	f := reflect.ValueOf(t.F)
-	return reflect.New(f.Type().In(0)).Interface()
+	ftyp := reflect.TypeOf(t.F)
+	n := ftyp.NumIn()
+	if n == 0 {
+		panic("function must have at least one input")
+	}
+	if n == 1 {
+		return reflect.New(ftyp.In(0)).Interface()
+	}
+	// Multiple input arguments.
+	in := make([]interface{}, n)
+	for i := range in {
+		in[i] = reflect.New(ftyp.In(i)).Interface()
+	}
+	return &in
 }
 
-// Returns a new object of the type of the second argument.
-// Returns nil if there is no second argument.
-func (t *funcTask) NewConfig() interface{} {
-	f := reflect.ValueOf(t.F)
-	if f.Type().NumIn() < 2 {
+func (t *funcTask) NewOutput() interface{} {
+	if !t.HasOutput() {
 		return nil
 	}
-	return reflect.New(f.Type().In(1)).Interface()
+	return reflect.New(reflect.TypeOf(t.F).Out(0)).Interface()
 }
 
-// Returns a new object of the type of the first return value.
-func (t *funcTask) NewOutput() interface{} {
-	f := reflect.ValueOf(t.F)
-	return reflect.New(f.Type().Out(0)).Interface()
-}
-
-// If function only takes one argument then p is ignored.
-func (t *funcTask) Func(x, p interface{}) (interface{}, error) {
-	f := reflect.ValueOf(t.F)
-	in := []reflect.Value{reflect.ValueOf(x)}
-	// Only use second argument if function accepts one.
-	if f.Type().NumIn() > 1 {
-		in = append(in, reflect.ValueOf(p))
+func (t *funcTask) Func(x interface{}) (interface{}, error) {
+	fval := reflect.ValueOf(t.F)
+	ftyp := fval.Type()
+	if ftyp.NumIn() == 0 {
+		panic("function must have at least one input")
+	}
+	var in []reflect.Value
+	if ftyp.NumIn() == 1 {
+		// If there is only one argument, use it directly.
+		in = append(in, reflect.ValueOf(x))
+	} else {
+		// If there are multiple arguments, convert to []interface{}.
+		// Derference each element.
+		args := x.([]interface{})
+		for _, arg := range args {
+			in = append(in, reflect.ValueOf(arg).Elem())
+		}
 	}
 	// Panics if call is invalid.
-	out := f.Call(in)
-	// Panics if f has no return values.
-	y := out[0].Interface()
-	if len(out) == 1 {
-		return y, nil
+	out := reflect.ValueOf(t.F).Call(in)
+
+	if t.HasError() {
+		// Convert last output to error.
+		err := out[len(out)-1].Interface()
+		if err != nil {
+			return nil, err.(error)
+		}
 	}
-	err := out[1].Interface()
-	if err == nil {
-		return y, nil
+	if !t.HasOutput() {
+		return nil, nil
 	}
-	// Panics if second return value is not assignable to error.
-	return y, err.(error)
+	return out[0].Interface(), nil
+}
+
+func (t *funcTask) HasOutput() bool {
+	ftyp := reflect.TypeOf(t.F)
+	n := ftyp.NumOut()
+	if n == 0 {
+		return false
+	}
+	if n > 1 {
+		return true
+	}
+	return !isError(ftyp.Out(0))
+}
+
+func (t *funcTask) HasError() bool {
+	ftyp := reflect.TypeOf(t.F)
+	n := ftyp.NumOut()
+	return isError(ftyp.Out(n - 1))
 }
