@@ -39,7 +39,7 @@ func ConfigFunc(f interface{}) ConfigTask {
 		panic(fmt.Sprintf("more than two outputs: %d", n))
 	} else if n == 2 {
 		errtyp := ftyp.Out(1)
-		if isError(errtyp) {
+		if !isError(errtyp) {
 			panic(fmt.Sprintf("output type is not error: %v", errtyp))
 		}
 	}
