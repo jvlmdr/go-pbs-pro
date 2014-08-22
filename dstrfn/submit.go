@@ -10,12 +10,13 @@ import (
 	"strings"
 )
 
-func submit(isMap bool, n int, jobargs []string, name, userargs string, subout, suberr io.Writer, jobout, joberr bool) error {
+// If n is greater than 1, the -J argument is supplied.
+func submit(n int, jobargs []string, name, userargs string, subout, suberr io.Writer, jobout, joberr bool) error {
 	var args []string
 	// Set task name.
 	args = append(args, "-N", name)
 	// Set number of jobs.
-	if isMap {
+	if n > 1 {
 		// TODO: Handle map of 1 task.
 		args = append(args, "-J", fmt.Sprintf("1-%d", n))
 	}

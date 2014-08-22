@@ -49,36 +49,36 @@ func Call(f string, y, x interface{}, stdout, stderr io.Writer) error {
 
 	// Invoke qsub.
 	jobargs := []string{"-dstrfn.task", f, "-dstrfn.dir", dir}
-	err = submit(false, 1, jobargs, f, task.Flags, stdout, stderr, task.Stdout, task.Stderr)
+	err = submit(1, jobargs, f, task.Flags, stdout, stderr, task.Stdout, task.Stderr)
 	if err != nil {
 		return err
 	}
 
-	// Load from output file.
-	if y != nil {
-		if _, err := os.Stat(outFile); err == nil {
-			// If output file exists, attempt to load.
-			if err := fileutil.LoadExt(outFile, y); err != nil {
-				return err
-			}
-		} else if !os.IsNotExist(err) {
-			// Could not stat file.
-			return err
-		} else {
-			// Output file did not exist. Try to load error file.
-			if _, err := os.Stat(errFile); err == nil {
-				// Error file exists. Attempt to load.
-				var str string
-				if err := fileutil.LoadExt(errFile, &str); err != nil {
-					return err
-				}
-				return errors.New(str)
-			} else if !os.IsNotExist(err) {
-				// Could not stat file.
-				return err
-			}
-			return errors.New("could not find output or error files")
+	if _, err := os.Stat(errFile); err == nil {
+		// Error file exists. Attempt to load.
+		var str string
+		if err := fileutil.LoadExt(errFile, &str); err != nil {
+			return fmt.Errorf("load error file: %v", err)
 		}
+		return errors.New(str)
+	} else if !os.IsNotExist(err) {
+		// Could not stat file.
+		return fmt.Errorf("stat error file: %v", err)
+	}
+	// Error file does not exist.
+
+	if _, err := os.Stat(outFile); os.IsNotExist(err) {
+		return errors.New("could not find output or error files")
+	} else if err != nil {
+		return fmt.Errorf("stat output file: %v", err)
+	}
+	// Output file exists.
+
+	if y == nil {
+		return nil
+	}
+	if err := fileutil.LoadExt(outFile, y); err != nil {
+		return err
 	}
 	return nil
 }

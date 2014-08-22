@@ -77,8 +77,8 @@ func Map(f string, y, x, p interface{}, stdout, stderr io.Writer) error {
 		}
 
 		// Invoke qsub.
-		jobargs := []string{"-dstrfn.task", f, "-dstrfn.map", "-dstrfn.dir", tmpDir}
-		err = submit(true, n, jobargs, f, task.Flags, nil, nil, task.Stdout, task.Stderr)
+		jobargs := []string{"-dstrfn.task", f, "-dstrfn.map", fmt.Sprint(n), "-dstrfn.dir", tmpDir}
+		err = submit(n, jobargs, f, task.Flags, nil, nil, task.Stdout, task.Stderr)
 		if err != nil {
 			return err
 		}

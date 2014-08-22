@@ -12,15 +12,15 @@ import (
 )
 
 var (
-	workerTask  string
-	workerDir   string
-	workerIsMap bool
+	workerTask   string
+	workerDir    string
+	workerMapLen int
 )
 
 func init() {
 	flag.StringVar(&workerTask, "dstrfn.task", "", "Task to execute as slave. Empty to execute as master.")
 	flag.StringVar(&workerDir, "dstrfn.dir", "", "Location of temporary files.")
-	flag.BoolVar(&workerIsMap, "dstrfn.map", false, "Task is executed as part of a map operation.")
+	flag.IntVar(&workerMapLen, "dstrfn.map", 0, "The number of tasks in the map. Zero if not a map operation.")
 }
 
 // If the process is a worker, this function never returns.
@@ -47,17 +47,23 @@ func worker() error {
 
 	// Determine file locations.
 	var inFile, outFile, errFile string
-	if workerIsMap {
+	if workerMapLen > 0 {
 		// If this is a map task, then use the array index.
-		id, err := getenvInt("PBS_ARRAY_INDEX")
-		if err != nil {
-			return err
+		var ind int
+		// Array index cannot be set for maps of 1 job.
+		// In this case the index is zero.
+		if workerMapLen > 1 {
+			var err error
+			ind, err = getenvInt("PBS_ARRAY_INDEX")
+			if err != nil {
+				return err
+			}
+			// Convert to zero-indexed.
+			ind--
 		}
-		// Convert to zero-indexed.
-		id--
-		inFile = fmt.Sprintf("in-%d.json", id)
-		outFile = fmt.Sprintf("out-%d.json", id)
-		errFile = fmt.Sprintf("err-%d.json", id)
+		inFile = fmt.Sprintf("in-%d.json", ind)
+		outFile = fmt.Sprintf("out-%d.json", ind)
+		errFile = fmt.Sprintf("err-%d.json", ind)
 	} else {
 		inFile = "in.json"
 		outFile = "out.json"
@@ -85,7 +91,7 @@ func worker() error {
 func doTask(inFile, confFile, outFile string) error {
 	// Look up task by name.
 	var task ConfigTask
-	if workerIsMap {
+	if workerMapLen > 0 {
 		spec, there := mapTasks[workerTask]
 		if !there {
 			return fmt.Errorf(`map task not found: "%s"`, workerTask)
