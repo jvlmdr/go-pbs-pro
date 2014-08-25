@@ -37,7 +37,9 @@ func Call(f string, y, x interface{}, stdout, stderr io.Writer) error {
 	if err != nil {
 		return err
 	}
-	defer os.RemoveAll(dir)
+	if !debug {
+		defer os.RemoveAll(dir)
+	}
 
 	inFile := path.Join(dir, "in.json")
 	outFile := path.Join(dir, "out.json")
@@ -67,15 +69,15 @@ func Call(f string, y, x interface{}, stdout, stderr io.Writer) error {
 	}
 	// Error file does not exist.
 
+	if y == nil {
+		// No output required.
+		return nil
+	}
+
 	if _, err := os.Stat(outFile); os.IsNotExist(err) {
 		return errors.New("could not find output or error files")
 	} else if err != nil {
 		return fmt.Errorf("stat output file: %v", err)
-	}
-	// Output file exists.
-
-	if y == nil {
-		return nil
 	}
 	if err := fileutil.LoadExt(outFile, y); err != nil {
 		return err

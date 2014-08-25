@@ -53,23 +53,25 @@ func Map(f string, y, x, p interface{}, stdout, stderr io.Writer) error {
 		if err != nil {
 			return err
 		}
-		tmpDir, err := ioutil.TempDir(wd, "")
+		dir, err := ioutil.TempDir(wd, "")
 		if err != nil {
 			return err
 		}
-		defer os.RemoveAll(tmpDir)
+		if !debug {
+			defer os.RemoveAll(dir)
+		}
 
 		// Save each input to file.
 		xval := reflect.ValueOf(x)
 		for i := 0; i < xval.Len(); i++ {
-			inFile := path.Join(tmpDir, fmt.Sprintf("in-%d.json", i))
+			inFile := path.Join(dir, fmt.Sprintf("in-%d.json", i))
 			err := fileutil.SaveExt(inFile, xval.Index(i).Interface())
 			if err != nil {
 				return err
 			}
 		}
 		if p != nil {
-			confFile := path.Join(tmpDir, "conf.json")
+			confFile := path.Join(dir, "conf.json")
 			err := fileutil.SaveExt(confFile, p)
 			if err != nil {
 				return err
@@ -77,7 +79,7 @@ func Map(f string, y, x, p interface{}, stdout, stderr io.Writer) error {
 		}
 
 		// Invoke qsub.
-		jobargs := []string{"-dstrfn.task", f, "-dstrfn.map", fmt.Sprint(n), "-dstrfn.dir", tmpDir}
+		jobargs := []string{"-dstrfn.task", f, "-dstrfn.map", fmt.Sprint(n), "-dstrfn.dir", dir}
 		err = submit(n, jobargs, f, task.Flags, nil, nil, task.Stdout, task.Stderr)
 		if err != nil {
 			return err
@@ -85,8 +87,8 @@ func Map(f string, y, x, p interface{}, stdout, stderr io.Writer) error {
 
 		for i := 0; i < n; i++ {
 			// Load from output file.
-			outFile := path.Join(tmpDir, fmt.Sprintf("out-%d.json", i))
-			errFile := path.Join(tmpDir, fmt.Sprintf("err-%d.json", i))
+			outFile := path.Join(dir, fmt.Sprintf("out-%d.json", i))
+			errFile := path.Join(dir, fmt.Sprintf("err-%d.json", i))
 			yi := reflect.ValueOf(y).Index(i).Addr().Interface()
 
 			if _, err := os.Stat(outFile); err == nil {
