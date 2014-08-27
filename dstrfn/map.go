@@ -30,8 +30,9 @@ func Map(f string, y, x, p interface{}, stdout, stderr io.Writer) error {
 		return fmt.Errorf(`map task not found: "%s"`, f)
 	}
 
-	var do func(task *mapTaskSpec, y, x interface{}, chunk bool) error
-	do = func(task *mapTaskSpec, y, x interface{}, chunk bool) error {
+	// Recursively invoked closure.
+	var do func(task *mapTaskSpec, y, x interface{}, chunk bool) (string, error)
+	do = func(task *mapTaskSpec, y, x interface{}, chunk bool) (string, error) {
 		n := reflect.ValueOf(x).Len()
 		y = ensureLenAndDeref(y, n)
 
@@ -40,25 +41,22 @@ func Map(f string, y, x, p interface{}, stdout, stderr io.Writer) error {
 			// Create slice of slices for output.
 			vtyp := reflect.SliceOf(reflect.TypeOf(y))
 			v := reflect.New(vtyp).Interface()
-			err := do(task, v, u, false)
+			dir, err := do(task, v, u, false)
 			if err != nil {
-				return err
+				return dir, err
 			}
 			mergeTo(y, deref(v))
-			return nil
+			return dir, nil
 		}
 
 		// Create temporary directory.
 		wd, err := os.Getwd()
 		if err != nil {
-			return err
+			return "", err
 		}
-		dir, err := ioutil.TempDir(wd, "")
+		dir, err := ioutil.TempDir(wd, f+"-")
 		if err != nil {
-			return err
-		}
-		if !debug {
-			defer os.RemoveAll(dir)
+			return "", err
 		}
 
 		// Save each input to file.
@@ -67,22 +65,22 @@ func Map(f string, y, x, p interface{}, stdout, stderr io.Writer) error {
 			inFile := path.Join(dir, fmt.Sprintf("in-%d.json", i))
 			err := fileutil.SaveExt(inFile, xval.Index(i).Interface())
 			if err != nil {
-				return err
+				return "", err
 			}
 		}
 		if p != nil {
 			confFile := path.Join(dir, "conf.json")
 			err := fileutil.SaveExt(confFile, p)
 			if err != nil {
-				return err
+				return "", err
 			}
 		}
 
 		// Invoke qsub.
 		jobargs := []string{"-dstrfn.task", f, "-dstrfn.map", fmt.Sprint(n), "-dstrfn.dir", dir}
-		err = submit(n, jobargs, f, task.Flags, nil, nil, task.Stdout, task.Stderr)
+		err = submit(n, jobargs, f, dir, task.Flags, nil, nil)
 		if err != nil {
-			return err
+			return "", err
 		}
 
 		for i := 0; i < n; i++ {
@@ -94,32 +92,37 @@ func Map(f string, y, x, p interface{}, stdout, stderr io.Writer) error {
 			if _, err := os.Stat(outFile); err == nil {
 				// If output file exists, attempt to load.
 				if err := fileutil.LoadExt(outFile, yi); err != nil {
-					return err
+					return "", err
 				}
 			} else if !os.IsNotExist(err) {
 				// Could not stat file.
-				return err
+				return "", err
 			} else {
 				// Output file did not exist. Try to load error file.
 				if _, err := os.Stat(errFile); err == nil {
 					// Error file exists. Attempt to load.
 					var str string
 					if err := fileutil.LoadExt(errFile, &str); err != nil {
-						return err
+						return "", err
 					}
-					return errors.New(str)
+					return "", errors.New(str)
 				} else if !os.IsNotExist(err) {
 					// Could not stat file.
-					return err
+					return "", err
 				}
-				return fmt.Errorf("could not find output or error files: job %d", i)
+				return "", fmt.Errorf("could not find output or error files: job %d", i)
 			}
 		}
-		return nil
+		return dir, nil
 	}
 
-	if err := do(task, y, x, task.Chunk); err != nil {
+	tmpdir, err := do(task, y, x, task.Chunk)
+	if err != nil {
 		return err
+	}
+	// Only remove temporary directory if there was no error.
+	if !debug {
+		return removeAll(tmpdir)
 	}
 	return nil
 }

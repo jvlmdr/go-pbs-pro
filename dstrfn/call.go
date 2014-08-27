@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"log"
 	"os"
 	"path"
+	"time"
 
 	"github.com/jvlmdr/go-file/fileutil"
 )
@@ -33,12 +35,9 @@ func Call(f string, y, x interface{}, stdout, stderr io.Writer) error {
 	}
 
 	// Create temporary directory.
-	dir, err := ioutil.TempDir(".", "")
+	dir, err := ioutil.TempDir(".", f+"-")
 	if err != nil {
 		return err
-	}
-	if !debug {
-		defer os.RemoveAll(dir)
 	}
 
 	inFile := path.Join(dir, "in.json")
@@ -51,7 +50,7 @@ func Call(f string, y, x interface{}, stdout, stderr io.Writer) error {
 
 	// Invoke qsub.
 	jobargs := []string{"-dstrfn.task", f, "-dstrfn.dir", dir}
-	err = submit(1, jobargs, f, task.Flags, stdout, stderr, task.Stdout, task.Stderr)
+	err = submit(1, jobargs, f, dir, task.Flags, stdout, stderr)
 	if err != nil {
 		return err
 	}
@@ -69,18 +68,31 @@ func Call(f string, y, x interface{}, stdout, stderr io.Writer) error {
 	}
 	// Error file does not exist.
 
-	if y == nil {
-		// No output required.
-		return nil
+	if y != nil {
+		// Output required.
+		if _, err := os.Stat(outFile); os.IsNotExist(err) {
+			return errors.New("could not find output or error files")
+		} else if err != nil {
+			return fmt.Errorf("stat output file: %v", err)
+		}
+		if err := fileutil.LoadExt(outFile, y); err != nil {
+			return err
+		}
 	}
-
-	if _, err := os.Stat(outFile); os.IsNotExist(err) {
-		return errors.New("could not find output or error files")
-	} else if err != nil {
-		return fmt.Errorf("stat output file: %v", err)
-	}
-	if err := fileutil.LoadExt(outFile, y); err != nil {
-		return err
+	// Only remove temporary directory if there was no error.
+	if !debug {
+		return removeAll(dir)
 	}
 	return nil
+}
+
+func removeAll(fname string) error {
+	for {
+		err := os.RemoveAll(fname)
+		if err == nil {
+			return nil
+		}
+		log.Print("remove all:", err)
+		time.Sleep(1)
+	}
 }
