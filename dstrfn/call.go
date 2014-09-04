@@ -92,7 +92,7 @@ func removeAll(fname string) error {
 		if err == nil {
 			return nil
 		}
-		log.Print("remove all:", err)
+		log.Print(err)
 		time.Sleep(1)
 	}
 }
