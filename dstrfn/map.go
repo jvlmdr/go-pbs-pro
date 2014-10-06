@@ -13,7 +13,7 @@ import (
 )
 
 func MapFunc(f string, y, x interface{}, p ...interface{}) error {
-	return Map(f, y, x, p, DefaultStdout, DefaultStderr)
+	return Map(f, y, x, p, DefaultStdout, DefaultStderr, nil)
 }
 
 // Map computes y[i] = f(x[i], p) for all i.
@@ -24,7 +24,7 @@ func MapFunc(f string, y, x interface{}, p ...interface{}) error {
 // If the length of y is sufficient to hold the output, it will be over-written.
 // If it is not sufficient, a new array will be allocated.
 // After a succesful call, the length of y will match that of x.
-func Map(f string, y, x, p interface{}, stdout, stderr io.Writer) error {
+func Map(f string, y, x, p interface{}, stdout, stderr io.Writer, flags []string) error {
 	task, there := mapTasks[f]
 	if !there {
 		return fmt.Errorf(`map task not found: "%s"`, f)
@@ -78,6 +78,9 @@ func Map(f string, y, x, p interface{}, stdout, stderr io.Writer) error {
 
 		// Invoke qsub.
 		jobargs := []string{"-dstrfn.task", f, "-dstrfn.map", fmt.Sprint(n), "-dstrfn.dir", dir}
+		if len(flags) > 0 {
+			jobargs = append(jobargs, flags...)
+		}
 		err = submit(n, jobargs, f, dir, task.Flags, nil, nil)
 		if err != nil {
 			return "", err

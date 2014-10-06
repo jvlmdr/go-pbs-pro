@@ -42,7 +42,9 @@ func submit(n int, jobargs []string, name, dir, userargs string, subout, suberr 
 		self = path.Join(wd, os.Args[0])
 	}
 	args = append(args, "--", self)
-	args = append(args, jobargs...)
+	if len(jobargs) > 0 {
+		args = append(args, jobargs...)
+	}
 
 	cmd := exec.Command("qsub", args...)
 	// Re-route stdout and stderr.

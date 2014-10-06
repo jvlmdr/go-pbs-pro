@@ -20,15 +20,19 @@ var (
 
 func CallFunc(f string, y interface{}, x ...interface{}) error {
 	if len(x) == 1 {
-		return Call(f, y, x[0], DefaultStdout, DefaultStderr)
+		return Call(f, y, x[0], DefaultStdout, DefaultStderr, nil)
 	}
-	return Call(f, y, x, DefaultStdout, DefaultStderr)
+	return Call(f, y, x, DefaultStdout, DefaultStderr, nil)
+}
+
+func Args(x ...interface{}) []interface{} {
+	return x
 }
 
 // Call calls the function and saves the output to the specified file.
 // It does not load the result into memory.
 // If the file already exists, it does not call the function.
-func Call(f string, y, x interface{}, stdout, stderr io.Writer) error {
+func Call(f string, y, x interface{}, stdout, stderr io.Writer, flags []string) error {
 	task, there := tasks[f]
 	if !there {
 		return fmt.Errorf(`task not found: "%s"`, f)
@@ -50,6 +54,9 @@ func Call(f string, y, x interface{}, stdout, stderr io.Writer) error {
 
 	// Invoke qsub.
 	jobargs := []string{"-dstrfn.task", f, "-dstrfn.dir", dir}
+	if len(flags) > 0 {
+		jobargs = append(jobargs, flags...)
+	}
 	err = submit(1, jobargs, f, dir, task.Flags, stdout, stderr)
 	if err != nil {
 		return err
