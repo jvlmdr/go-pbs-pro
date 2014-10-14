@@ -6,7 +6,7 @@ import (
 )
 
 // Takes an input of []X and returns an input of [][]X.
-func split(x interface{}, minNum, maxSize int) interface{} {
+func split(x interface{}, minNum, maxSize int) (interface{}, [][]int) {
 	xval := reflect.ValueOf(x)
 	n := xval.Len()
 	// Split m into the largest groups allowed
@@ -14,14 +14,19 @@ func split(x interface{}, minNum, maxSize int) interface{} {
 	// Number of groups cannot exceed number of elements.
 	m := max(ceilDiv(n, maxSize), min(minNum, n))
 	y := reflect.MakeSlice(reflect.SliceOf(xval.Type()), m, m)
+	inds := make([][]int, m)
 	for i := 0; i < m; i++ {
 		yi := reflect.MakeSlice(xval.Type(), 0, ceilDiv(n, m))
+		p := make([]int, 0, ceilDiv(n, m))
 		for j := 0; m*j+i < n; j++ {
-			yi = reflect.Append(yi, xval.Index(m*j+i))
+			ind := m*j + i
+			yi = reflect.Append(yi, xval.Index(ind))
+			p = append(p, ind)
 		}
 		y.Index(i).Set(yi)
+		inds[i] = p
 	}
-	return y.Interface()
+	return y.Interface(), inds
 }
 
 // Takes a slice [][]X and returns a slice []X.

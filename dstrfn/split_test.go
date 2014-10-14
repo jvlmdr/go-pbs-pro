@@ -50,7 +50,7 @@ var splitTests = []struct {
 
 func TestSplit(t *testing.T) {
 	for _, x := range splitTests {
-		got := split(x.In, x.MinNum, x.MaxSize)
+		got, _ := split(x.In, x.MinNum, x.MaxSize)
 		if !reflect.DeepEqual(x.Out, got) {
 			t.Errorf("%+v: got %v", x, got)
 		}
@@ -59,7 +59,7 @@ func TestSplit(t *testing.T) {
 
 func TestMerge_AfterSplit(t *testing.T) {
 	for _, x := range splitTests {
-		y := split(x.In, x.MinNum, x.MaxSize)
+		y, _ := split(x.In, x.MinNum, x.MaxSize)
 		got := merge(y)
 		if !reflect.DeepEqual(x.In, got) {
 			t.Errorf("%+v: got %v", x, got)
@@ -69,7 +69,7 @@ func TestMerge_AfterSplit(t *testing.T) {
 
 func TestMergeTo_AfterSplit(t *testing.T) {
 	for _, x := range splitTests {
-		y := split(x.In, x.MinNum, x.MaxSize)
+		y, _ := split(x.In, x.MinNum, x.MaxSize)
 		val := reflect.ValueOf(x.In)
 		got := reflect.MakeSlice(val.Type(), val.Len(), val.Len()).Interface()
 		mergeTo(got, y)

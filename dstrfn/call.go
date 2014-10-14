@@ -57,9 +57,12 @@ func Call(f string, y, x interface{}, stdout, stderr io.Writer, flags []string) 
 	if len(flags) > 0 {
 		jobargs = append(jobargs, flags...)
 	}
-	err = submit(1, jobargs, f, dir, task.Flags, stdout, stderr)
+	execErr, err := submit(1, jobargs, f, dir, task.Flags, stdout, stderr)
 	if err != nil {
 		return err
+	}
+	if execErr != nil {
+		return execErr
 	}
 
 	if _, err := os.Stat(errFile); err == nil {

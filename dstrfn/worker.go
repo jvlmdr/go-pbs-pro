@@ -79,7 +79,7 @@ func worker() error {
 	if err := doTask(inFile, confFile, outFile); err != nil {
 		// Attempt to save error.
 		if err := fileutil.SaveExt(errFile, err.Error()); err != nil {
-			return err
+			return fmt.Errorf("save error: %v", err)
 		}
 	}
 	return nil
@@ -109,7 +109,7 @@ func doTask(inFile, confFile, outFile string) error {
 	if x != nil {
 		log.Println("load input:", inFile)
 		if err := fileutil.LoadExt(inFile, x); err != nil {
-			return err
+			return fmt.Errorf("load input: %v", err)
 		}
 		x = deref(x)
 	}
@@ -117,7 +117,7 @@ func doTask(inFile, confFile, outFile string) error {
 	if p != nil {
 		log.Println("load config:", confFile)
 		if err := fileutil.LoadExt(confFile, p); err != nil {
-			return err
+			return fmt.Errorf("load config: %v", err)
 		}
 		p = deref(p)
 	}
@@ -129,7 +129,7 @@ func doTask(inFile, confFile, outFile string) error {
 	if y != nil {
 		log.Println("save output:", outFile)
 		if err := fileutil.SaveExt(outFile, y); err != nil {
-			return err
+			return fmt.Errorf("save output: %v", err)
 		}
 	}
 	return nil
@@ -150,7 +150,7 @@ func getenvInt(name string) (int, error) {
 	}
 	x, err := strconv.ParseInt(str, 10, 32)
 	if err != nil {
-		return 0, err
+		return 0, fmt.Errorf("parse integer from env var: %v", err)
 	}
 	return int(x), nil
 }

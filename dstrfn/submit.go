@@ -11,7 +11,7 @@ import (
 )
 
 // If n is greater than 1, the -J argument is supplied.
-func submit(n int, jobargs []string, name, dir, userargs string, subout, suberr io.Writer) error {
+func submit(n int, jobargs []string, name, dir, userargs string, subout, suberr io.Writer) (execErr, err error) {
 	var args []string
 	// Set task name.
 	args = append(args, "-N", name)
@@ -37,7 +37,7 @@ func submit(n int, jobargs []string, name, dir, userargs string, subout, suberr 
 	if !path.IsAbs(self) {
 		wd, err := os.Getwd()
 		if err != nil {
-			return err
+			return nil, err
 		}
 		self = path.Join(wd, os.Args[0])
 	}
@@ -51,5 +51,5 @@ func submit(n int, jobargs []string, name, dir, userargs string, subout, suberr 
 	cmd.Stdout = subout
 	cmd.Stderr = suberr
 	log.Printf("qsub arguments: %#v", args)
-	return cmd.Run()
+	return cmd.Run(), nil
 }

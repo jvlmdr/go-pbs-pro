@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"log"
 	"os"
 	"path"
 	"reflect"
@@ -35,17 +36,37 @@ func Map(f string, y, x, p interface{}, stdout, stderr io.Writer, flags []string
 	do = func(task *mapTaskSpec, y, x interface{}, chunk bool) (string, error) {
 		n := reflect.ValueOf(x).Len()
 		y = ensureLenAndDeref(y, n)
+		// y now has correct len, is not a pointer, and can be modified.
 
 		if chunk {
-			u := split(x, 1, max(task.ChunkLen, 1))
+			u, inds := split(x, 1, max(task.ChunkLen, 1))
 			// Create slice of slices for output.
 			vtyp := reflect.SliceOf(reflect.TypeOf(y))
 			v := reflect.New(vtyp).Interface()
 			dir, err := do(task, v, u, false)
+			v = deref(v)
 			if err != nil {
-				return dir, err
+				mapErr := err.(MapError)
+				// Need to re-map task errors.
+				taskErrs := make(map[int]error)
+				for i := range inds {
+					if err := mapErr.Tasks[i]; err != nil {
+						// Give error to all members.
+						for _, p := range inds[i] {
+							taskErrs[p] = err
+						}
+						continue
+					}
+					// No error occured. Move outputs.
+					for j, p := range inds[i] {
+						vij := reflect.ValueOf(v).Index(i).Index(j)
+						yp := reflect.ValueOf(y).Index(p)
+						yp.Set(vij)
+					}
+				}
+				return dir, MapError{mapErr.Master, taskErrs, n}
 			}
-			mergeTo(y, deref(v))
+			mergeTo(y, v)
 			return dir, nil
 		}
 
@@ -65,14 +86,14 @@ func Map(f string, y, x, p interface{}, stdout, stderr io.Writer, flags []string
 			inFile := path.Join(dir, fmt.Sprintf("in-%d.json", i))
 			err := fileutil.SaveExt(inFile, xval.Index(i).Interface())
 			if err != nil {
-				return "", err
+				return dir, fmt.Errorf("save input %d: %v", i, err)
 			}
 		}
 		if p != nil {
 			confFile := path.Join(dir, "conf.json")
 			err := fileutil.SaveExt(confFile, p)
 			if err != nil {
-				return "", err
+				return dir, fmt.Errorf("save config: %v", err)
 			}
 		}
 
@@ -81,11 +102,12 @@ func Map(f string, y, x, p interface{}, stdout, stderr io.Writer, flags []string
 		if len(flags) > 0 {
 			jobargs = append(jobargs, flags...)
 		}
-		err = submit(n, jobargs, f, dir, task.Flags, nil, nil)
+		execErr, err := submit(n, jobargs, f, dir, task.Flags, nil, nil)
 		if err != nil {
-			return "", err
+			return dir, err
 		}
 
+		taskErrs := make(map[int]error)
 		for i := 0; i < n; i++ {
 			// Load from output file.
 			outFile := path.Join(dir, fmt.Sprintf("out-%d.json", i))
@@ -95,26 +117,39 @@ func Map(f string, y, x, p interface{}, stdout, stderr io.Writer, flags []string
 			if _, err := os.Stat(outFile); err == nil {
 				// If output file exists, attempt to load.
 				if err := fileutil.LoadExt(outFile, yi); err != nil {
-					return "", err
+					taskErrs[i] = fmt.Errorf("load output: %v", err)
+					continue
 				}
 			} else if !os.IsNotExist(err) {
 				// Could not stat file.
-				return "", err
+				taskErrs[i] = err
+				continue
 			} else {
 				// Output file did not exist. Try to load error file.
 				if _, err := os.Stat(errFile); err == nil {
 					// Error file exists. Attempt to load.
 					var str string
 					if err := fileutil.LoadExt(errFile, &str); err != nil {
-						return "", err
+						taskErrs[i] = err
+						continue
 					}
-					return "", errors.New(str)
+					taskErrs[i] = errors.New(str)
+					continue
 				} else if !os.IsNotExist(err) {
 					// Could not stat file.
-					return "", err
+					taskErrs[i] = err
+					continue
 				}
-				return "", fmt.Errorf("could not find output or error files: job %d", i)
+				taskErrs[i] = fmt.Errorf("could not find output or error files: job %d", i)
+				continue
 			}
+		}
+
+		if execErr != nil {
+			return dir, MapError{execErr, taskErrs, n}
+		}
+		if len(taskErrs) > 0 {
+			return dir, MapError{Tasks: taskErrs, Len: n}
 		}
 		return dir, nil
 	}
@@ -125,7 +160,9 @@ func Map(f string, y, x, p interface{}, stdout, stderr io.Writer, flags []string
 	}
 	// Only remove temporary directory if there was no error.
 	if !debug {
-		return removeAll(tmpdir)
+		if err := removeAll(tmpdir); err != nil {
+			log.Println(err)
+		}
 	}
 	return nil
 }
